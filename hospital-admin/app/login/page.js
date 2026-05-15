@@ -7,9 +7,8 @@ import { ArrowLeft, Eye, EyeOff, Lock, Mail, Shield } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "https://qsmgiegmsgnrspxfbjou.supabase.co",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFzbWdpZWdtc2ducnNweGZiam91Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMjA0NzksImV4cCI6MjA5MTY5NjQ3OX0.QQDo5ho7TxVdlwTYS9huRrgsIbXBMN4Wu7kgG8XmzFg"
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
 const PRIMARY = "#143D30";
@@ -17,27 +16,27 @@ const PRIMARY = "#143D30";
 const spring = { type: "spring", stiffness: 400, damping: 30 };
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
-  show:   { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 25 } },
+  show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 25 } },
 };
 const stagger = {
   hidden: {},
-  show:   { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
+  show: { transition: { staggerChildren: 0.08, delayChildren: 0.1 } },
 };
 
 export default function LoginPage() {
-  const [email,           setEmail]           = useState("");
-  const [password,        setPassword]        = useState("");
-  const [error,           setError]           = useState(null);
-  const [loading,         setLoading]         = useState(false);
-  const [showPassword,    setShowPassword]    = useState(false);
-  const [showResetModal,  setShowResetModal]  = useState(false);
-  const [newPassword,     setNewPassword]     = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [resetLoading,    setResetLoading]    = useState(false);
-  const [resetError,      setResetError]      = useState(null);
-  const [doctorName,      setDoctorName]      = useState("");
-  const [pendingUserId,   setPendingUserId]   = useState(null);
-  const [mounted,         setMounted]         = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState(null);
+  const [doctorName, setDoctorName] = useState("");
+  const [pendingUserId, setPendingUserId] = useState(null);
+  const [mounted, setMounted] = useState(false);
 
   const router = useRouter();
 
@@ -55,7 +54,7 @@ export default function LoginPage() {
       if (authError) throw authError;
       const userId = authData.user.id;
       const { data: doctor } = await supabase
-        .from("doctors").select("first_login, name, user_id").eq("user_id", userId).single();
+        .from("doctors").select("first_login, name, user_id, id").eq("user_id", userId).maybeSingle();
       if (doctor) {
         if (doctor.first_login) {
           setDoctorName(doctor.name); setPendingUserId(userId);
@@ -69,7 +68,6 @@ export default function LoginPage() {
         if (redirectTo) { sessionStorage.removeItem("loginRedirect"); router.push(redirectTo); }
         else router.push("/admin");
       }
-      router.refresh();
     } catch (err) {
       setError(err.message || "Invalid email or password.");
       setLoading(false);
@@ -97,7 +95,7 @@ export default function LoginPage() {
 
   const strength = newPassword.length >= 12 ? 4 : newPassword.length >= 9 ? 3 : newPassword.length >= 6 ? 2 : newPassword.length >= 3 ? 1 : 0;
   const strengthLabel = ["", "Weak", "Fair", "Good", "Strong"][strength] || "";
-  const strengthColors = ["bg-slate-100", "bg-red-400", "bg-amber-400", "bg-blue-400", "bg-emerald-500"];
+  const strengthColors = ["#F1F5F9", "#F87171", "#FBBF24", "#60A5FA", "#10B981"];
 
   return (
     <div className="min-h-screen flex font-sans relative overflow-hidden">
@@ -116,26 +114,26 @@ export default function LoginPage() {
         initial={{ opacity: 0, x: -40 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.7, ease: [0.34, 1.1, 0.64, 1] }}
-        className="hidden lg:flex flex-col justify-between w-[45%] relative overflow-hidden p-14"
-        style={{ background: PRIMARY }}
+        className="hidden lg:flex flex-col justify-between w-[45%] relative overflow-hidden"
+        style={{ background: PRIMARY, padding: "56px 56px 56px 56px" }}
       >
         {/* Inner glow */}
         <div style={{
           position: "absolute", inset: 0,
-          background: "radial-gradient(ellipse 80% 60% at 30% 40%, rgba(78,204,163,0.15), transparent 70%)",
+          background: "radial-gradient(ellipse 80% 60% at 30% 40%, rgba(78,204,163,0.18), transparent 70%)",
           pointerEvents: "none",
         }} />
 
         {/* Floating circles */}
         {mounted && [
-          { w: 300, h: 300, top: "-80px", right: "-80px", opacity: 0.07 },
-          { w: 200, h: 200, bottom: "80px", left: "-60px", opacity: 0.05 },
-          { w: 150, h: 150, top: "40%", right: "10%", opacity: 0.06 },
+          { w: 320, h: 320, top: "-90px", right: "-90px", opacity: 0.07 },
+          { w: 220, h: 220, bottom: "60px", left: "-70px", opacity: 0.05 },
+          { w: 160, h: 160, top: "42%", right: "8%", opacity: 0.06 },
         ].map((c, i) => (
           <motion.div
             key={i}
-            animate={{ y: [0, -12, 0], rotate: [0, 5, 0] }}
-            transition={{ duration: 6 + i * 2, repeat: Infinity, ease: "easeInOut" }}
+            animate={{ y: [0, -14, 0], rotate: [0, 6, 0] }}
+            transition={{ duration: 7 + i * 2, repeat: Infinity, ease: "easeInOut" }}
             style={{
               position: "absolute", width: c.w, height: c.h,
               top: c.top, bottom: c.bottom, right: c.right, left: c.left,
@@ -154,20 +152,21 @@ export default function LoginPage() {
           style={{ position: "relative", zIndex: 1 }}
         >
           <div style={{
-            width: 64, height: 64, borderRadius: 16,
-            overflow: "hidden",
-            marginBottom: 20,
-            boxShadow: "0 4px 20px rgba(0,0,0,0.15)",
+            width: 64, height: 64, borderRadius: 18,
+            overflow: "hidden", marginBottom: 24,
+            boxShadow: "0 8px 28px rgba(0,0,0,0.25)",
+            border: "2px solid rgba(255,255,255,0.15)",
           }}>
-            <img src="/logo.jpeg" alt="Cura Hospital Management" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <img src="/logo.jpeg" alt="Cura" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
           <h1 style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 800,
-            fontSize: 32, color: "white", letterSpacing: "-0.03em", lineHeight: 1.2,
+            fontFamily: "'Syne', sans-serif", fontWeight: 900,
+            fontSize: 36, color: "white", letterSpacing: "-0.04em", lineHeight: 1.1,
           }}>Cura</h1>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 11, letterSpacing: "0.3em", marginTop: 8, fontWeight: 800, textTransform: "uppercase" }}>
-            Healthcare OS
-          </p>
+          <p style={{
+            color: "rgba(255,255,255,0.45)", fontSize: 10,
+            letterSpacing: "0.38em", marginTop: 8, fontWeight: 800, textTransform: "uppercase",
+          }}>Healthcare OS</p>
         </motion.div>
 
         {/* Center content */}
@@ -178,28 +177,31 @@ export default function LoginPage() {
           style={{ position: "relative", zIndex: 1 }}
         >
           <motion.div
-            animate={{ y: [0, -8, 0] }}
+            animate={{ y: [0, -10, 0] }}
             transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
             style={{
-              width: 80, height: 80, borderRadius: 24,
-              background: "rgba(255,255,255,0.1)",
-              border: "1px solid rgba(255,255,255,0.2)",
+              width: 84, height: 84, borderRadius: 26,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.18)",
               display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 36, marginBottom: 32,
+              fontSize: 38, marginBottom: 36,
               backdropFilter: "blur(20px)",
+              boxShadow: "0 8px 32px rgba(0,0,0,0.15)",
             }}
-          >
-            🏥
-          </motion.div>
+          >🏥</motion.div>
+
           <h2 style={{
-            fontFamily: "'Syne', sans-serif", fontWeight: 700,
-            fontSize: 26, color: "white", letterSpacing: "-0.02em",
-            lineHeight: 1.3, marginBottom: 16,
+            fontFamily: "'Syne', sans-serif", fontWeight: 800,
+            fontSize: 30, color: "white", letterSpacing: "-0.03em",
+            lineHeight: 1.25, marginBottom: 18,
           }}>
             The clinic that<br />
-            <span style={{ color: "rgba(78,204,163,0.9)" }}>answers itself.</span>
+            <span style={{ color: "rgba(78,204,163,0.95)", fontStyle: "italic" }}>answers itself.</span>
           </h2>
-          <p style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, lineHeight: 1.7, maxWidth: 280, fontWeight: 400 }}>
+          <p style={{
+            color: "rgba(255,255,255,0.45)", fontSize: 14,
+            lineHeight: 1.8, maxWidth: 300, fontWeight: 400,
+          }}>
             WhatsApp-powered appointment automation for modern healthcare facilities.
           </p>
         </motion.div>
@@ -209,13 +211,16 @@ export default function LoginPage() {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.7 }}
-          style={{ display: "flex", gap: 12, flexWrap: "wrap", position: "relative", zIndex: 1 }}
+          style={{ display: "flex", gap: 10, flexWrap: "wrap", position: "relative", zIndex: 1 }}
         >
           {["🤖 AI Bot", "🔐 Supabase", "🏥 Multi-Hospital"].map((f, i) => (
             <div key={i} style={{
-              padding: "6px 14px", borderRadius: 999,
-              background: "rgba(255,255,255,0.1)", border: "1px solid rgba(255,255,255,0.15)",
-              color: "rgba(255,255,255,0.7)", fontSize: 11, fontWeight: 700,
+              padding: "7px 16px", borderRadius: 999,
+              background: "rgba(255,255,255,0.08)",
+              border: "1px solid rgba(255,255,255,0.14)",
+              color: "rgba(255,255,255,0.65)", fontSize: 11, fontWeight: 700,
+              letterSpacing: "0.04em",
+              backdropFilter: "blur(8px)",
             }}>
               {f}
             </div>
@@ -470,7 +475,7 @@ export default function LoginPage() {
                 {newPassword && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: "0 2px" }}>
                     <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
-                      {[0,1,2,3].map((l) => (
+                      {[0, 1, 2, 3].map((l) => (
                         <motion.div
                           key={l}
                           initial={{ scaleX: 0 }}

@@ -17,8 +17,8 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-/* ─── OTP always sent to this email ────────────────────────────────────────── */
-const OTP_RECIPIENT = "limbasiyadev232004@gmail.com";
+/* ─── OTP recipient — falls back to the typed login email if env var not set ── */
+const OTP_RECIPIENT_ENV = process.env.NEXT_PUBLIC_OTP_RECIPIENT || "";
 
 /* ─── DESIGN TOKENS ─────────────────────────────────────────────────────────── */
 const T = {
@@ -38,7 +38,7 @@ const FEATURES = [
   { icon: "💬", label: "WhatsApp Bot" },
   { icon: "🔐", label: "Supabase Auth" },
   { icon: "⚡", label: "Real-time Sync" },
-  { icon: "🏥", label: "Multi-Hospital" },
+  { icon: "🏨", label: "Multi-Hospital" },
 ];
 
 /* ─── STATS ─────────────────────────────────────────────────────────────────── */
@@ -137,8 +137,10 @@ function MagneticCard({ children, style = {}, onClick, onMouseEnter, onMouseLeav
 function Counter({ target, suffix, decimals = 0 }) {
   const [v, setV] = useState(0);
   useEffect(() => {
-    if (target === "∞") return;
-    const n = parseFloat(target), step = n / 48;
+    if (target === "∞") return; // guard before any numeric ops
+    const n = parseFloat(target);
+    if (isNaN(n)) return;
+    const step = n / 48;
     let cur = 0;
     const t = setInterval(() => {
       cur = Math.min(cur + step, n);
@@ -288,6 +290,7 @@ function AdminAuthModal({ onClose, onSuccess }) {
       const { data: isValid, error: rpcErr } = await supabase.rpc("verify_admin_login", {
         p_email:    email.trim().toLowerCase(),
         p_password: password,
+        
       });
 
       if (rpcErr) throw new Error("Server error. Please try again.");
@@ -306,8 +309,10 @@ function AdminAuthModal({ onClose, onSuccess }) {
       if (insertErr) throw new Error("Could not create OTP. Try again.");
 
       /* Send OTP email via Edge Function */
+      const otpRecipient = OTP_RECIPIENT_ENV || email.trim().toLowerCase();
+      if (!otpRecipient) throw new Error("No OTP recipient configured. Set NEXT_PUBLIC_OTP_RECIPIENT.");
       const { error: fnErr } = await supabase.functions.invoke("send-otp-email", {
-        body: { otp: newOTP, email: OTP_RECIPIENT },
+        body: { otp: newOTP, email: otpRecipient },
       });
       if (fnErr) throw new Error("Could not send OTP email. Check Edge Function.");
 
@@ -342,6 +347,7 @@ function AdminAuthModal({ onClose, onSuccess }) {
       /* Mark OTP as used */
       await supabase.from("otp_verifications").update({ used: true }).eq("id", data.id);
 
+      sessionStorage.setItem("admin_authenticated", "true");
       setStep("success");
       setTimeout(() => onSuccess(), 1000);
     } catch (err) {
@@ -365,8 +371,9 @@ function AdminAuthModal({ onClose, onSuccess }) {
         expires_at: expiresAt,
         used: false,
       });
+      const otpRecipient = OTP_RECIPIENT_ENV || email.trim().toLowerCase();
       await supabase.functions.invoke("send-otp-email", {
-        body: { otp: newOTP, email: OTP_RECIPIENT },
+        body: { otp: newOTP, email: otpRecipient },
       });
       setCountdown(60);
       setOtp("");
@@ -448,7 +455,7 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 {isSuccess
                   ? "Redirecting to admin portal..."
                   : isOTP
-                    ? `Code sent to ${OTP_RECIPIENT}`
+                   ? "Code sent to your registered email"
                     : "Secure credentials required"}
               </p>
             </div>
@@ -572,7 +579,7 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 display: "flex", alignItems: "center", gap: 8,
               }}>
                 <Mail size={11} style={{ color: "#16A34A", flexShrink: 0 }} />
-                An OTP will be sent to&nbsp;<strong style={{ color: T.accent }}>{OTP_RECIPIENT}</strong>
+                An OTP will be sent to your registered email address.
               </div>
 
               <motion.button
@@ -614,8 +621,8 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 textAlign: "center",
               }}>
                 <p style={{ fontSize: 13, color: "#475569", fontWeight: 500, margin: 0, lineHeight: 1.6 }}>
-                  Enter the 6-digit code sent to<br />
-                  <strong style={{ color: T.primary, fontFamily: "'Syne',sans-serif" }}>{OTP_RECIPIENT}</strong>
+                  Enter the 6-digit code sent to your<br />
+                  <strong style={{ color: T.primary, fontFamily: "'Syne',sans-serif" }}>registered email address</strong>
                 </p>
                 <p style={{ fontSize: 11, color: T.muted, margin: "8px 0 0", fontWeight: 500 }}>
                   Valid for 10 minutes
@@ -733,7 +740,7 @@ export default function Home() {
 
   function handleCardClick(card) {
     if (card.requiresAuth) {
-      setShowAdminAuth(true);
+      router.push("/admin-login");
     } else {
       router.push(card.route);
     }
@@ -851,21 +858,7 @@ export default function Home() {
             </motion.div>
           )}
 
-          <motion.button
-            onClick={() => router.push("/login")}
-            whileHover={{ scale: 1.03 }}
-            whileTap={{ scale: 0.97 }}
-            style={{
-              padding: "9px 22px", borderRadius: 999, border: "none", cursor: "pointer",
-              background: T.primary,
-              color: "#fff", fontSize: 12, fontWeight: 700, letterSpacing: "0.06em",
-              textTransform: "uppercase", fontFamily: "'Syne', sans-serif",
-              display: "flex", alignItems: "center", gap: 7,
-              boxShadow: "0 4px 16px rgba(13,51,39,0.28), 0 1px 0 rgba(255,255,255,0.12) inset",
-            }}
-          >
-            Sign In <ChevronRight size={12} />
-          </motion.button>
+
         </div>
       </motion.nav>
 
@@ -902,12 +895,12 @@ export default function Home() {
 
           <motion.p
             variants={slide}
-            style={{ color: "#64748B", fontSize: 19, lineHeight: 1.75, maxWidth: 560, fontWeight: 400, marginBottom: 48 }}
+            style={{ color: "#64748B", fontSize: 19, lineHeight: 1.75, maxWidth: 560, fontWeight: 400, marginBottom: 32 }}
           >
             Cura connects a master admin console and specialist dashboards into one calm ecosystem — scheduling, approvals, and clinic data stay in sync via WhatsApp automation.
           </motion.p>
 
-          <motion.div variants={stagger} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 64 }}>
+          <motion.div variants={stagger} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
             {FEATURES.map((f) => (
               <motion.div
                 key={f.label}
@@ -1121,8 +1114,8 @@ export default function Home() {
         transition={{ delay: 1.0 }}
         style={{
           position: "relative", zIndex: 1,
-          margin: "0 3rem 96px",
-          maxWidth: "calc(1200px - 96px)",
+          margin: "0 auto 96px",
+          maxWidth: 1200,
           borderRadius: 20, padding: "24px 36px",
           background: "rgba(255,255,255,0.72)",
           backdropFilter: "blur(24px) saturate(1.8)",
