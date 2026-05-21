@@ -41,7 +41,7 @@ export default function Step3({ data, onChange, hospitals }) {
     <div>
       <p style={{ fontSize:10, fontWeight:800, letterSpacing:"0.2em", textTransform:"uppercase", color:"#143D30", fontFamily:"'Syne',sans-serif", marginBottom:6 }}>MEDICAL CREDENTIALING · STEP 03</p>
       <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:32, color:"#0F172A", letterSpacing:"-0.04em", marginBottom:6 }}>Department & Clinic Assignment</h1>
-      <p style={{ fontSize:14, color:"#64748B", marginBottom:28 }}>Assign the specialist's clinical department and select the hospital where they'll practice.</p>
+      <p style={{ fontSize:14, color:"#64748B", marginBottom:28 }}>Assign the specialist&apos;s clinical department and select the hospital where they&apos;ll practice.</p>
 
       <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:20, alignItems:"start" }}>
 

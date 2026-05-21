@@ -6,8 +6,6 @@ export default function EditHospitalModal({ hospital, onClose, onSave, onDelete 
   const [form, setForm] = useState({
     name:             hospital.name || "",
     address:          hospital.address || "",
-    phone_number_id:  hospital.phone_number_id || "",
-    whatsapp_token:   hospital.whatsapp_token || "",
   });
   const [saving,   setSaving]   = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -53,17 +51,6 @@ export default function EditHospitalModal({ hospital, onClose, onSave, onDelete 
             <input className="input-base" placeholder="e.g. 12, Ring Road, Rajkot" value={form.address} onChange={e => set("address", e.target.value)} />
           </div>
 
-          <div style={{ background:"#F8FAFF", border:"1px solid #DBEAFE", borderRadius:14, padding:16, marginBottom:20 }}>
-            <p style={{ fontSize:10, fontWeight:800, letterSpacing:"0.2em", textTransform:"uppercase", color:"#3B82F6", fontFamily:"'Syne',sans-serif", marginBottom:12 }}>WHATSAPP BUSINESS</p>
-            <div style={{ marginBottom:10 }}>
-              <label className="field-label" style={{ color:"#64748B" }}>PHONE NUMBER ID</label>
-              <input className="input-base" placeholder="From Meta Business Manager" value={form.phone_number_id} onChange={e => set("phone_number_id", e.target.value)} />
-            </div>
-            <div>
-              <label className="field-label" style={{ color:"#64748B" }}>WHATSAPP TOKEN</label>
-              <input className="input-base" type="password" placeholder="••••••••••••" value={form.whatsapp_token} onChange={e => set("whatsapp_token", e.target.value)} />
-            </div>
-          </div>
 
           <button type="submit" disabled={saving} style={{ width:"100%", padding:14, background:"#143D30", color:"white", borderRadius:14, border:"none", fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:13, letterSpacing:"0.1em", cursor:"pointer", marginBottom:10 }}>
             {saving ? "Saving…" : "SAVE CHANGES"}

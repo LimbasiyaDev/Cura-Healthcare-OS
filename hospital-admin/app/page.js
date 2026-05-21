@@ -2,7 +2,7 @@
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight, Shield, Stethoscope, Clock, CheckCircle2,
-  Zap, Activity, ChevronRight, Wifi, Bell, X, Lock, Mail, Eye, EyeOff, ArrowLeft
+  Zap, Activity, Wifi, Bell, X, Lock, Mail, Eye, EyeOff, ArrowLeft, Building2
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -18,7 +18,7 @@ const supabase = createBrowserClient(
 );
 
 /* ─── OTP recipient — falls back to the typed login email if env var not set ── */
-const OTP_RECIPIENT_ENV = process.env.NEXT_PUBLIC_OTP_RECIPIENT || "";
+
 
 /* ─── DESIGN TOKENS ─────────────────────────────────────────────────────────── */
 const T = {
@@ -35,7 +35,7 @@ const T = {
 
 /* ─── FEATURE PILLS ─────────────────────────────────────────────────────────── */
 const FEATURES = [
-  { icon: "💬", label: "WhatsApp Bot" },
+  { icon: "💬", label: "Website Bot" },
   { icon: "🔐", label: "Supabase Auth" },
   { icon: "⚡", label: "Real-time Sync" },
   { icon: "🏨", label: "Multi-Hospital" },
@@ -59,8 +59,8 @@ const CARDS = [
     badge: "Admin",
     requiresAuth: true,
     bullets: ["Doctor onboarding", "Full audit log", "Hospital config"],
-    color: "#0D3327",
-    accentColor: "rgba(13,51,39,0.08)",
+    color: "#143D30",
+    accentColor: "rgba(20,61,48,0.08)",
   },
   {
     id: 2, num: "02",
@@ -71,8 +71,20 @@ const CARDS = [
     badge: "Doctor",
     requiresAuth: false,
     bullets: ["Daily schedule", "Slot management", "Bot config"],
-    color: "#1A5C44",
-    accentColor: "rgba(26,92,68,0.08)",
+    color: "#143D30",
+    accentColor: "rgba(20,61,48,0.08)",
+  },
+  {
+    id: 3, num: "03",
+    title: "Available Hospitals",
+    desc: "Browse every registered facility, review capacity, departments, and locate the right hospital for any patient need.",
+    icon: Building2,
+    route: "/hospitals",
+    badge: "Public",
+    requiresAuth: false,
+    bullets: ["Facility directory", "Department list", "Live capacity"],
+    color: "#143D30",
+    accentColor: "rgba(20,61,48,0.08)",
   },
 ];
 
@@ -175,7 +187,6 @@ const NoiseBg = () => (
 /* ─── OTP INPUT ─────────────────────────────────────────────────────────────── */
 function OTPInput({ value, onChange, disabled }) {
   const inputs = useRef([]);
-  const digits = (value + "______").slice(0, 6).split("");
 
   function handleChange(e, idx) {
     const val = e.target.value.replace(/\D/g, "").slice(-1);
@@ -308,13 +319,16 @@ function AdminAuthModal({ onClose, onSuccess }) {
       });
       if (insertErr) throw new Error("Could not create OTP. Try again.");
 
-      /* Send OTP email via Edge Function */
-      const otpRecipient = OTP_RECIPIENT_ENV || email.trim().toLowerCase();
-      if (!otpRecipient) throw new Error("No OTP recipient configured. Set NEXT_PUBLIC_OTP_RECIPIENT.");
-      const { error: fnErr } = await supabase.functions.invoke("send-otp-email", {
-        body: { otp: newOTP, email: otpRecipient },
+      /* Send OTP email via local API route */
+      const otpRecipient = email.trim().toLowerCase();
+      if (!otpRecipient) throw new Error("Please enter a valid email.");
+      
+      const res = await fetch("/api/send-otp-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: newOTP, email: otpRecipient })
       });
-      if (fnErr) throw new Error("Could not send OTP email. Check Edge Function.");
+      if (!res.ok) throw new Error("Could not send OTP email. Please try again.");
 
       setCountdown(60);
       setStep("otp");
@@ -371,9 +385,11 @@ function AdminAuthModal({ onClose, onSuccess }) {
         expires_at: expiresAt,
         used: false,
       });
-      const otpRecipient = OTP_RECIPIENT_ENV || email.trim().toLowerCase();
-      await supabase.functions.invoke("send-otp-email", {
-        body: { otp: newOTP, email: otpRecipient },
+      const otpRecipient = email.trim().toLowerCase();
+      await fetch("/api/send-otp-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: newOTP, email: otpRecipient })
       });
       setCountdown(60);
       setOtp("");
@@ -730,6 +746,7 @@ export default function Home() {
   const [showAdminAuth, setShowAdminAuth] = useState(false);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     const tick = () =>
       setTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }));
@@ -740,7 +757,7 @@ export default function Home() {
 
   function handleCardClick(card) {
     if (card.requiresAuth) {
-      router.push("/admin-login");
+      setShowAdminAuth(true);
     } else {
       router.push(card.route);
     }
@@ -870,7 +887,7 @@ export default function Home() {
           <motion.div variants={slide} style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 32 }}>
             <div style={{ width: 32, height: 1.5, background: "linear-gradient(90deg, transparent, rgba(20,61,48,0.3))", borderRadius: 1 }}/>
             <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", color: T.muted, fontFamily: "'Syne', sans-serif" }}>
-              A Two-Part Command Center
+              A Three-Part Command Center
             </span>
           </motion.div>
 
@@ -897,7 +914,7 @@ export default function Home() {
             variants={slide}
             style={{ color: "#64748B", fontSize: 19, lineHeight: 1.75, maxWidth: 560, fontWeight: 400, marginBottom: 32 }}
           >
-            Cura connects a master admin console and specialist dashboards into one calm ecosystem — scheduling, approvals, and clinic data stay in sync via WhatsApp automation.
+            Cura connects a master admin console and specialist dashboards into one calm ecosystem — scheduling, approvals, and clinic data stay in sync via automated bot interactions.
           </motion.p>
 
           <motion.div variants={stagger} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
@@ -959,7 +976,7 @@ export default function Home() {
           </span>
         </motion.div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 20, alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, alignItems: "stretch" }}>
           {CARDS.map((card, i) => {
             const Icon = card.icon;
             const isHov = hovered === card.id;
@@ -1169,7 +1186,7 @@ export default function Home() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>Powered by Supabase + WhatsApp</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>Powered by Supabase + Website Bot</span>
           <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, background: "rgba(20,61,48,0.06)", border: "1px solid rgba(20,61,48,0.09)" }}>
             <Zap size={10} style={{ color: T.accent }} />
             <span style={{ fontSize: 11, fontWeight: 800, color: T.accent, fontFamily: "'Syne', sans-serif", letterSpacing: "0.06em" }}>v2.0</span>

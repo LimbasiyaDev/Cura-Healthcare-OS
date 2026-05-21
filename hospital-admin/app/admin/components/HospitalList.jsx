@@ -55,7 +55,6 @@ export default function HospitalList({ hospitals, activeHospital, onSwitch, onEd
         {filtered.map(h => {
           const isActive  = h.id === activeHospital?.id;
           const docCount  = doctors.filter(d => d.hospital_id === h.id).length;
-          const hasWA     = !!(h.phone_number_id && h.whatsapp_token);
           return (
             <div key={h.id} style={{ background:"white", border:`1.5px solid ${isActive ? "#143D30" : "rgba(20,61,48,0.09)"}`, borderRadius:18, padding:"18px 22px", display:"flex", alignItems:"center", gap:16, boxShadow: isActive ? "0 4px 24px rgba(20,61,48,0.12)" : "0 2px 8px rgba(0,0,0,0.04)", transition:"all 0.2s" }}>
 
@@ -69,9 +68,6 @@ export default function HospitalList({ hospitals, activeHospital, onSwitch, onEd
                 {h.address && (
                   <p style={{ fontSize:12, color:"#64748B", marginBottom:3, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap" }}>📍 {h.address}</p>
                 )}
-                <p style={{ fontSize:11, fontWeight:700, color: hasWA ? "#059669" : "#F59E0B" }}>
-                  {hasWA ? "✅ WhatsApp configured" : "⚠️ WhatsApp not configured"}
-                </p>
               </div>
 
               <div style={{ textAlign:"right", flexShrink:0 }}>

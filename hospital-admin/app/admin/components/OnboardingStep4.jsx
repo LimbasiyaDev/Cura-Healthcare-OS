@@ -32,7 +32,7 @@ export default function Step4({ data, hospitals }) {
     <div>
       <p style={{ fontSize:10, fontWeight:800, letterSpacing:"0.2em", textTransform:"uppercase", color:"#143D30", fontFamily:"'Syne',sans-serif", marginBottom:6 }}>MEDICAL CREDENTIALING · STEP 04</p>
       <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:32, color:"#0F172A", letterSpacing:"-0.04em", marginBottom:6 }}>Review & Confirm</h1>
-      <p style={{ fontSize:14, color:"#64748B", marginBottom:28 }}>Please review all details before confirming the onboarding. This will create the doctor's account.</p>
+      <p style={{ fontSize:14, color:"#64748B", marginBottom:28 }}>Please review all details before confirming the onboarding. This will create the doctor&apos;s account.</p>
 
       {/* Doctor preview hero */}
       <div style={{ background:"linear-gradient(135deg,#143D30,#1C5240)", borderRadius:20, padding:"28px 28px", display:"flex", alignItems:"center", gap:20, marginBottom:24, boxShadow:"0 8px 40px rgba(20,61,48,0.25)" }}>
@@ -89,7 +89,7 @@ export default function Step4({ data, hospitals }) {
         <CheckCircle2 size={20} color="#059669" style={{ flexShrink:0, marginTop:1 }}/>
         <div>
           <p style={{ fontWeight:800, fontSize:13.5, color:"#065F46", marginBottom:2, fontFamily:"'Syne',sans-serif" }}>Ready to Confirm</p>
-          <p style={{ fontSize:12, color:"#047857", lineHeight:1.6 }}>Clicking <strong>Confirm &amp; Onboard</strong> will create the doctor's Supabase auth account and send login credentials via WhatsApp.</p>
+          <p style={{ fontSize:12, color:"#047857", lineHeight:1.6 }}>Clicking <strong>Confirm &amp; Onboard</strong> will create the doctor&apos;s Supabase auth account and send login credentials.</p>
         </div>
       </div>
     

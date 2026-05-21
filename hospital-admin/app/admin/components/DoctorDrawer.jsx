@@ -18,9 +18,12 @@ export default function DoctorDrawer({ doctor, appointments, onClose, onToggleAv
   const [editRoom, setEditRoom]       = useState(false);
   const [room, setRoom]               = useState(doctor.room_number || "");
 
-  // Sync if parent refreshes doctor data after a save
-  useEffect(() => { setHours(doctor.working_hours || "09:00 AM - 06:00 PM"); }, [doctor.working_hours]);
-  useEffect(() => { setRoom(doctor.room_number || ""); }, [doctor.room_number]);
+  const [prevDoctor, setPrevDoctor]   = useState(doctor);
+  if (doctor.id !== prevDoctor.id || doctor.working_hours !== prevDoctor.working_hours || doctor.room_number !== prevDoctor.room_number) {
+    setPrevDoctor(doctor);
+    setHours(doctor.working_hours || "09:00 AM - 06:00 PM");
+    setRoom(doctor.room_number || "");
+  }
 
   const docAppts   = appointments.filter(a => a.doctor_id === doctor.id);
   const pending    = docAppts.filter(a => a.status === "pending");
@@ -77,7 +80,7 @@ export default function DoctorDrawer({ doctor, appointments, onClose, onToggleAv
               <span style={{ width:10, height:10, borderRadius:"50%", background: doctor.is_available?"#10B981":"#94A3B8", display:"inline-block" }}/>
               <div>
                 <p style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:14, color:"#0F172A" }}>{doctor.is_available ? "Online — Accepting Patients" : "Offline"}</p>
-                <p style={{ fontSize:11, color:"#64748B" }}>WhatsApp bot routes to this doctor</p>
+                <p style={{ fontSize:11, color:"#64748B" }}>Website bot routes to this doctor</p>
               </div>
             </div>
             <button onClick={() => onToggleAvailability(doctor)} style={{ padding:"8px 16px", borderRadius:10, border:"none", background: doctor.is_available ? "#EF4444" : "#143D30", color:"white", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:11, cursor:"pointer", letterSpacing:"0.08em" }}>

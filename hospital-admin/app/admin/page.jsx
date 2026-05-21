@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
-import { LogOut, RefreshCw, CheckCircle2, XCircle, LayoutDashboard, Building2, Users, Calendar, Settings, HelpCircle, BedDouble, Activity, Bell, Search, X } from "lucide-react";
+import { LogOut, RefreshCw, CheckCircle2, XCircle, LayoutDashboard, Building2, Users, Calendar, Settings, HelpCircle, BedDouble, Activity, Bell, Search, X, Mail, Phone } from "lucide-react";
 import HospitalModal     from "./components/HospitalModal";
 import EditHospitalModal from "./components/EditHospitalModal";
 import SpecialistModal   from "./components/SpecialistModal";
@@ -39,7 +39,7 @@ function SupportModal({ onClose, showToast, supabase }) {
             <div style={{ width:44, height:44, borderRadius:14, background:"#143D30", display:"flex", alignItems:"center", justifyContent:"center" }}><HelpCircle size={20} color="white"/></div>
             <div>
               <p style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18, color:"#0F172A", margin:0 }}>Support</p>
-              <p style={{ fontSize:11, color:"#94A3B8", fontWeight:600, margin:0 }}>We'll get back to you shortly</p>
+              <p style={{ fontSize:11, color:"#94A3B8", fontWeight:600, margin:0 }}>We&apos;ll get back to you shortly</p>
             </div>
           </div>
           <button onClick={onClose} style={{ width:32, height:32, borderRadius:999, background:"rgba(20,61,48,0.06)", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#94A3B8", fontSize:18 }}>✕</button>
@@ -48,7 +48,7 @@ function SupportModal({ onClose, showToast, supabase }) {
           <div style={{ textAlign:"center", padding:"24px 0" }}>
             <div style={{ fontSize:48, marginBottom:12 }}>✅</div>
             <p style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:"#0F172A", marginBottom:6 }}>Ticket Submitted!</p>
-            <p style={{ color:"#94A3B8", fontSize:13 }}>We've received your request and will respond soon.</p>
+            <p style={{ color:"#94A3B8", fontSize:13 }}>We&apos;ve received your request and will respond soon.</p>
           </div>
         ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
@@ -112,9 +112,58 @@ function StatCard({ label, value, sub, accent, border }) {
   );
 }
 
+/* ─── Appointment Row Component with HIPAA Audit log ──────────────────────── */
+function AppointmentRow({ a, doc, i, total, handleApptStatus, auditAdminRead }) {
+  useEffect(() => {
+    if (a.name && a.phone) {
+      auditAdminRead(a.name, a.phone, a.id);
+    }
+  }, [a.name, a.phone, a.id, auditAdminRead]);
+
+  return (
+    <div style={{ display:"grid", gridTemplateColumns:"1.8fr 1fr 1fr 1fr 1.2fr 160px", gap:8, padding:"13px 22px", alignItems:"center", borderBottom:i < total - 1 ? "1px solid #F8FBFA" : "none", transition:"background 0.15s" }}
+      onMouseEnter={e => e.currentTarget.style.background = "#F6FAF8"}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+      <div>
+        <p style={{ fontSize:13, fontWeight:700, color:"#0F172A" }}>{a.name || "—"}</p>
+        <p style={{ fontSize:11, color:"#94A3B8" }}>{a.reason || ""}</p>
+      </div>
+      <span style={{ fontSize:12, color:"#64748B", fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
+        {a.phone ? (
+          <>
+            {a.phone.includes("@") ? <Mail size={13} style={{ opacity: 0.6 }} /> : <Phone size={13} style={{ opacity: 0.6 }} />}
+            <span>{a.phone.replace(/^web_/, "")}</span>
+          </>
+        ) : "—"}
+      </span>
+      <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>{a.date || "—"}</span>
+      <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>{a.slot || "—"}</span>
+      <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>Dr. {doc?.name || "—"}</span>
+      <div style={{ display:"flex", gap:6, alignItems:"center" }}>
+        {a.status === "pending" ? (
+          <>
+            <button onClick={() => handleApptStatus(a, "booked")} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:"#ECFDF5", color:"#059669", border:"1.5px solid #A7F3D0", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:10, cursor:"pointer", letterSpacing:"0.06em" }}>
+              <CheckCircle2 size={11}/> CONFIRM
+            </button>
+            <button onClick={() => handleApptStatus(a, "rejected")} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:"#FEF2F2", color:"#DC2626", border:"1.5px solid #FECACA", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:10, cursor:"pointer", letterSpacing:"0.06em" }}>
+              <XCircle size={11}/> REJECT
+            </button>
+          </>
+        ) : (
+          <span style={{ display:"inline-flex", padding:"4px 10px", borderRadius:999, fontSize:9, fontWeight:800, fontFamily:"'Syne',sans-serif",
+            background: a.status==="booked"?"#ECFDF5":a.status==="rejected"?"#FEF2F2":"#FFFBEB",
+            color:      a.status==="booked"?"#059669":a.status==="rejected"?"#DC2626":"#D97706" }}>
+            {a.status?.toUpperCase()}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ═══════════════════════════════════════════════════════════════════════════
    MAIN PAGE
-═══════════════════════════════════════════════════════════════════════════ */
+ ═══════════════════════════════════════════════════════════════════════════ */
 export default function MasterAdmin() {
   const router = useRouter();
 
@@ -126,6 +175,30 @@ export default function MasterAdmin() {
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
   const [adminSession, setAdminSession] = useState(null);
+  const [auditedIds,   setAuditedIds]   = useState(new Set());
+
+  // Log administrative reads of patient information
+  const auditAdminRead = useCallback(async (patientName, patientPhone, apptId) => {
+    if (!apptId || auditedIds.has(apptId)) return;
+    setAuditedIds(prev => {
+      const next = new Set(prev);
+      next.add(apptId);
+      return next;
+    });
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      await supabase.from("audit_logs").insert([{
+        actor_id: session?.user?.id || adminSession?.user?.id || "admin_session",
+        actor_role: "admin",
+        action_type: "READ_PHI",
+        phi_category: "appointments",
+        patient_identifier: patientPhone,
+        description: `Administrator accessed historical booking profile for patient: ${patientName}`
+      }]);
+    } catch (e) {
+      console.error("Admin PHI audit error:", e);
+    }
+  }, [auditedIds, adminSession]);
 
   /* ─ UI ───────────────────────────────────────────────────────────────── */
   const [tab,          setTab]          = useState("dashboard");
@@ -155,10 +228,15 @@ export default function MasterAdmin() {
   /* ─ load ──────────────────────────────────────────────────────────────── */
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
+    let isRedirecting = false;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const adminAuth = sessionStorage.getItem("admin_authenticated");
-      if (!session && !adminAuth) { router.push("/admin-login"); return; }
+      if (!session && !adminAuth) { 
+        isRedirecting = true;
+        router.push("/admin-login"); 
+        return; 
+      }
       if (session) setAdminSession(session);
 
       const [{ data: hosp }, { data: docs }, { data: appts }] = await Promise.all([
@@ -178,17 +256,51 @@ export default function MasterAdmin() {
         if (fresh) setManageDoc(fresh);
       }
     } catch(e) { console.error(e); showToast("Failed to load data", "error"); }
-    finally { setLoading(false); setRefreshing(false); }
+    finally { 
+      if (!isRedirecting) {
+        setLoading(false); 
+        setRefreshing(false); 
+      }
+    }
   }, [router, manageDoc]);
 
   useEffect(() => { load(); }, []); // eslint-disable-line
+
+  // Handle auto logout on browser back
+  useEffect(() => {
+    if (loading) return;
+
+    // Push a dummy state so that there is a state to pop when user clicks "Back"
+    window.history.pushState(null, null, window.location.href);
+
+    const handlePopState = async () => {
+      sessionStorage.removeItem("admin_authenticated");
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("Popstate signOut error:", err);
+      }
+      router.push("/admin-login");
+    };
+
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [loading, router]);
 
   /* ─ hospital handlers ─────────────────────────────────────────────────── */
   async function handleAddHospital(form) {
     const { data, error } = await supabase.from("hospitals").insert([{
       name: form.name, address: form.address || null,
-      phone_number_id: form.phone_number_id || null,
-      whatsapp_token:  form.whatsapp_token  || null,
     }]).select().single();
     if (error) { showToast("Failed to add hospital: " + error.message, "error"); return; }
     showToast(`${form.name} added!`);
@@ -201,8 +313,6 @@ export default function MasterAdmin() {
     const { error } = await supabase.from("hospitals").update({
       name:            updated.name,
       address:         updated.address || null,
-      phone_number_id: updated.phone_number_id || null,
-      whatsapp_token:  updated.whatsapp_token  || null,
     }).eq("id", updated.id);
     if (error) { showToast("Failed to save: " + error.message, "error"); return; }
     showToast("Hospital updated");
@@ -248,13 +358,7 @@ export default function MasterAdmin() {
         throw error;
       }
 
-      const botRes = await fetch(`${BOT_URL}/notify-doctor-onboarded`, {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: form.phone, name: form.name, email: form.email, tempPassword, hospitalId: form.hospital_id }),
-      });
-      if (!botRes.ok) throw new Error("Doctor added to database, but WhatsApp message failed to send.");
-
-      showToast(`Dr. ${form.name} onboarded! Credentials sent via WhatsApp.`);
+      showToast(`Dr. ${form.name} onboarded!`);
       setShowSpec(false);
       await load(true);
     } catch(err) {
@@ -393,36 +497,15 @@ export default function MasterAdmin() {
           ) : histFiltered.slice(0, 60).map((a, i) => {
             const doc = doctors.find(d => d.id === a.doctor_id);
             return (
-              <div key={a.id} style={{ display:"grid", gridTemplateColumns:"1.8fr 1fr 1fr 1fr 1.2fr 160px", gap:8, padding:"13px 22px", alignItems:"center", borderBottom:i < histFiltered.length - 1 ? "1px solid #F8FBFA" : "none", transition:"background 0.15s" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#F6FAF8"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <div>
-                  <p style={{ fontSize:13, fontWeight:700, color:"#0F172A" }}>{a.name || "—"}</p>
-                  <p style={{ fontSize:11, color:"#94A3B8" }}>{a.reason || ""}</p>
-                </div>
-                <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>{a.phone || "—"}</span>
-                <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>{a.date || "—"}</span>
-                <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>{a.slot || "—"}</span>
-                <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>Dr. {doc?.name || "—"}</span>
-                <div style={{ display:"flex", gap:6, alignItems:"center" }}>
-                  {a.status === "pending" ? (
-                    <>
-                      <button onClick={() => handleApptStatus(a, "booked")} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:"#ECFDF5", color:"#059669", border:"1.5px solid #A7F3D0", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:10, cursor:"pointer", letterSpacing:"0.06em" }}>
-                        <CheckCircle2 size={11}/> CONFIRM
-                      </button>
-                      <button onClick={() => handleApptStatus(a, "rejected")} style={{ display:"flex", alignItems:"center", gap:4, padding:"6px 10px", borderRadius:8, background:"#FEF2F2", color:"#DC2626", border:"1.5px solid #FECACA", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:10, cursor:"pointer", letterSpacing:"0.06em" }}>
-                        <XCircle size={11}/> REJECT
-                      </button>
-                    </>
-                  ) : (
-                    <span style={{ display:"inline-flex", padding:"4px 10px", borderRadius:999, fontSize:9, fontWeight:800, fontFamily:"'Syne',sans-serif",
-                      background: a.status==="booked"?"#ECFDF5":a.status==="rejected"?"#FEF2F2":"#FFFBEB",
-                      color:      a.status==="booked"?"#059669":a.status==="rejected"?"#DC2626":"#D97706" }}>
-                      {a.status?.toUpperCase()}
-                    </span>
-                  )}
-                </div>
-              </div>
+              <AppointmentRow
+                key={a.id}
+                a={a}
+                doc={doc}
+                i={i}
+                total={histFiltered.length}
+                handleApptStatus={handleApptStatus}
+                auditAdminRead={auditAdminRead}
+              />
             );
           })}
         </div>
@@ -487,7 +570,15 @@ export default function MasterAdmin() {
             style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:11, fontSize:13, fontWeight:600, color:"#94A3B8", cursor:"pointer", border:"none", background:"none", width:"100%", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
             <HelpCircle size={16}/> Support
           </button>
-          <button onClick={async () => { sessionStorage.removeItem("admin_authenticated"); await supabase.auth.signOut(); router.push("/admin-login"); }}
+          <button onClick={async () => {
+              sessionStorage.removeItem("admin_authenticated");
+              try {
+                await supabase.auth.signOut();
+              } catch (err) {
+                console.warn("SignOut error:", err);
+              }
+              router.push("/admin-login");
+            }}
             style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:11, fontSize:13, fontWeight:600, color:"#EF4444", cursor:"pointer", border:"none", background:"none", width:"100%", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
             <LogOut size={16}/> Sign Out
           </button>

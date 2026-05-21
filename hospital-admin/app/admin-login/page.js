@@ -13,7 +13,7 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-const OTP_RECIPIENT_ENV = process.env.NEXT_PUBLIC_OTP_RECIPIENT || "";
+
 
 const T = {
   primary: "#0D3327",
@@ -218,11 +218,13 @@ export default function AdminLoginPage() {
       });
       if (insertErr) throw new Error("Could not create OTP. Try again.");
 
-      const otpRecipient = OTP_RECIPIENT_ENV || email.trim().toLowerCase();
-      const { error: fnErr } = await supabase.functions.invoke("send-otp-email", {
-        body: { otp: newOTP, email: otpRecipient },
+      const otpRecipient = email.trim().toLowerCase();
+      const res = await fetch("/api/send-otp-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: newOTP, email: otpRecipient })
       });
-      if (fnErr) throw new Error("Could not send OTP email.");
+      if (!res.ok) throw new Error("Could not send OTP email.");
 
       setCountdown(60);
       setStep("otp");
@@ -275,8 +277,12 @@ export default function AdminLoginPage() {
       await supabase.from("otp_verifications").insert({
         email: email.trim().toLowerCase(), otp: newOTP, expires_at: expiresAt, used: false,
       });
-      const otpRecipient = OTP_RECIPIENT_ENV || email.trim().toLowerCase();
-      await supabase.functions.invoke("send-otp-email", { body: { otp: newOTP, email: otpRecipient } });
+      const otpRecipient = email.trim().toLowerCase();
+      await fetch("/api/send-otp-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: newOTP, email: otpRecipient })
+      });
       setCountdown(60);
       setOtp("");
     } catch {
@@ -313,11 +319,13 @@ export default function AdminLoginPage() {
       });
       if (insertErr) throw new Error("Could not create OTP. Try again.");
 
-      const otpRecipient = OTP_RECIPIENT_ENV || forgotEmail.trim().toLowerCase();
-      const { error: fnErr } = await supabase.functions.invoke("send-otp-email", {
-        body: { otp: newOTP, email: otpRecipient },
+      const otpRecipient = forgotEmail.trim().toLowerCase();
+      const res = await fetch("/api/send-otp-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: newOTP, email: otpRecipient })
       });
-      if (fnErr) throw new Error("Could not send OTP email.");
+      if (!res.ok) throw new Error("Could not send OTP email.");
 
       setCountdown(60);
       setStep("forgot_otp");
@@ -402,9 +410,11 @@ export default function AdminLoginPage() {
       await supabase.from("otp_verifications").insert({
         email: forgotEmail.trim().toLowerCase(), otp: newOTP, expires_at: expiresAt, used: false,
       });
-      const otpRecipient = OTP_RECIPIENT_ENV || forgotEmail.trim().toLowerCase();
-      await supabase.functions.invoke("send-otp-email", {
-        body: { otp: newOTP, email: otpRecipient },
+      const otpRecipient = forgotEmail.trim().toLowerCase();
+      await fetch("/api/send-otp-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ otp: newOTP, email: otpRecipient })
       });
       setCountdown(60);
       setForgotOtp("");
@@ -464,7 +474,7 @@ export default function AdminLoginPage() {
           borderRadius: 999, padding: "8px 16px", cursor: "pointer",
           backdropFilter: "blur(20px)",
         }}
-        whileHover={{ color: T.primary, background: "white", scale: 1.02 }}
+        whileHover={{ color: T.primary, background: "#ffffff", scale: 1.02 }}
       >
         <ArrowLeft size={12} /> Home
       </motion.button>
@@ -618,7 +628,7 @@ export default function AdminLoginPage() {
               style={{ display: "flex", flexDirection: "column", gap: 16 }}
             >
               <div style={{ padding: "14px 16px", borderRadius: 14, background: "rgba(124,58,237,0.04)", border: "1px solid rgba(124,58,237,0.12)", fontSize: 12, color: "#475569", fontWeight: 500, lineHeight: 1.6 }}>
-                Enter the email address linked to your admin account. We'll send a one-time code to verify your identity.
+                Enter the email address linked to your admin account. We&apos;ll send a one-time code to verify your identity.
               </div>
 
               <div>
@@ -687,7 +697,7 @@ export default function AdminLoginPage() {
               )}
 
               <div style={{ textAlign: "center" }}>
-                <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Didn't receive it? </span>
+                <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>Didn&apos;t receive it? </span>
                 <motion.button onClick={handleResendForgotOTP} disabled={countdown > 0 || loading}
                   whileHover={countdown === 0 ? { scale: 1.03 } : {}}
                   style={{ background: "none", border: "none", fontSize: 12, fontWeight: 700, color: countdown > 0 ? T.muted : "#7C3AED", cursor: countdown > 0 ? "default" : "pointer", fontFamily: "'Syne',sans-serif" }}

@@ -258,7 +258,7 @@ function SkeletonRow() {
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:4000";
 
-async function sendWhatsAppReschedule(toPhone, patientName, newSlot, date, doctorName, hospitalId) {
+async function sendBotReschedule(toPhone, patientName, newSlot, date, doctorName, hospitalId) {
   if (!toPhone) return { ok: false, error: "No phone number on record for this patient." };
   try {
     const res  = await fetch(`${BOT_URL}/reschedule-notify`, {
@@ -738,7 +738,7 @@ export default function BookingSchedule({
       if (error) console.error("Reschedule DB update failed:", error);
     }
     const doc = doctors.find(d => d.id === appt.doctor_id);
-    const { ok, error } = await sendWhatsAppReschedule(
+    const { ok, error } = await sendBotReschedule(
       appt.phone    || "",
       appt.name     || "Patient",
       newSlot.label,
@@ -747,9 +747,9 @@ export default function BookingSchedule({
       appt.hospital_id || "",
     );
     if (ok) {
-      showToast?.(`${appt.name} rescheduled to ${newSlot.label} — WhatsApp sent ✓`, "success");
+      showToast?.(`${appt.name} rescheduled to ${newSlot.label} — Patient notified ✓`, "success");
     } else {
-      showToast?.(`Rescheduled to ${newSlot.label} (WhatsApp failed: ${error})`, "warning");
+      showToast?.(`Rescheduled to ${newSlot.label} (Notification failed: ${error})`, "warning");
     }
     onReschedule?.(appt, newSlot);
   }
@@ -1089,7 +1089,13 @@ export default function BookingSchedule({
                                   <span>⏰ {appt.slot}</span>
                                   {doc && <span>👨‍⚕️ Dr. {doc.name}</span>}
                                   {(appt.room_number||doc?.room_number) && <span>🚪 Room {appt.room_number||doc?.room_number}</span>}
-                                  {appt.phone && <span>📞 {appt.phone}</span>}
+                                  {appt.phone && (
+                                    appt.phone.includes("@") ? (
+                                      <span>✉️ {appt.phone.replace(/^web_/, "")}</span>
+                                    ) : (
+                                      <span>📞 {appt.phone.replace(/^web_/, "")}</span>
+                                    )
+                                  )}
                                   {appt.age && <span>🎂 Age {appt.age}</span>}
                                   {isCall && appt.meet_link && (
                                     <span style={{ color:"#3730A3", fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:180 }}>

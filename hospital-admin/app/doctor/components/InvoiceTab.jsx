@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Search, X, User, Phone, Calendar, Hash,
+  Search, X, User, Phone, Calendar, Hash, Mail,
   Plus, Minus, Trash2, Printer, MessageCircle,
   FileText, CheckCircle2, ChevronDown, Edit3,
   Zap, AlertCircle, Eye, Send, RefreshCw,
@@ -223,7 +223,7 @@ function PatientSearchBox({ appointments, onSelect, selected }) {
                   </p>
                   <div style={{ display: "flex", gap: 10, marginTop: 3, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
-                      <Phone size={9} /> {p.phone}
+                      {p.phone?.includes("@") ? <Mail size={9} /> : <Phone size={9} />} {p.phone?.replace(/^web_/, "")}
                     </span>
                     <span style={{ fontSize: 11, color: "#94A3B8", fontWeight: 600, display: "flex", alignItems: "center", gap: 3 }}>
                       <Calendar size={9} /> Last: {p.lastVisit}
@@ -256,7 +256,7 @@ function PatientSearchBox({ appointments, onSelect, selected }) {
               padding: "20px 16px", textAlign: "center",
             }}
           >
-            <p style={{ fontSize: 13, color: "#94A3B8", fontWeight: 600 }}>No patients found for "{query}"</p>
+            <p style={{ fontSize: 13, color: "#94A3B8", fontWeight: 600 }}>No patients found for &quot;{query}&quot;</p>
             <p style={{ fontSize: 11, color: "#CBD5E1", marginTop: 4 }}>You can still fill in the details manually below</p>
           </motion.div>
         )}
@@ -474,8 +474,8 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
     showToast("Invoice cleared", "info");
   };
 
-  // ── Send via Bot (WhatsApp — PDF + Pay Now CTA) ───────────────────────────
-  const sendViaBotWhatsApp = async () => {
+  // ── Send via Bot (PDF + Pay Now CTA) ───────────────────────────
+  const sendViaBot = async () => {
     if (!patPhone) { showToast("Select a patient with a phone number first", "error"); return; }
     if (items.length === 0) { showToast("Add at least one service", "error"); return; }
 
@@ -518,7 +518,7 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
       setInvoiceStatus("sent");
       setSentAt(new Date().toLocaleTimeString());
       startPolling(invNumRef.current);
-      showToast(`✅ Invoice sent to ${patName} via WhatsApp with Pay Now link!`, "success");
+      showToast(`✅ Invoice sent to ${patName} via Bot with Pay Now link!`, "success");
     } catch (err) {
       showToast(`Failed to send: ${err.message}`, "error");
     } finally {
@@ -818,7 +818,7 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
                   </p>
                   <div style={{ display: "flex", gap: 12, marginTop: 3, flexWrap: "wrap" }}>
                     <span style={{ fontSize: 11, color: PRIMARY, fontWeight: 700, display: "flex", alignItems: "center", gap: 4 }}>
-                      <Phone size={9} /> {selectedPatient.phone}
+                      {selectedPatient.phone?.includes("@") ? <Mail size={9} /> : <Phone size={9} />} {selectedPatient.phone?.replace(/^web_/, "")}
                     </span>
                     <span style={{ fontSize: 11, color: "#64748B", fontWeight: 600 }}>
                       {selectedPatient.dates?.length} visit{selectedPatient.dates?.length !== 1 ? "s" : ""} recorded
@@ -843,7 +843,7 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
               <input style={styles.inputF} value={patName} onChange={e => setPatName(e.target.value)} placeholder="Full name" />
             </div>
             <div>
-              <label style={styles.fieldLabel}>Phone / WhatsApp</label>
+              <label style={styles.fieldLabel}>Phone</label>
               <input style={styles.inputF} value={patPhone} onChange={e => setPatPhone(e.target.value)} placeholder="+91 98765 43210" />
             </div>
             <div>
@@ -1181,9 +1181,9 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
             </div>
             <div style={{ ...styles.cardBody, display: "flex", flexDirection: "column", gap: 10 }}>
 
-              {/* PRIMARY: Send via Bot — WhatsApp with PDF + Pay Now */}
+              {/* PRIMARY: Send via Bot with PDF + Pay Now */}
               <motion.button
-                onClick={sendViaBotWhatsApp}
+                onClick={sendViaBot}
                 disabled={sending || invoiceStatus === "paid"}
                 whileHover={!sending && invoiceStatus !== "paid" ? { scale: 1.02, y: -2 } : {}}
                 whileTap={!sending && invoiceStatus !== "paid" ? { scale: 0.97 } : {}}
@@ -1213,7 +1213,7 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
                 ) : invoiceStatus === "paid" ? (
                   <><CheckCheck size={15} /> Invoice Paid ✓</>
                 ) : (
-                  <><MessageCircle size={15} /> Send WhatsApp + Pay Now</>
+                  <><MessageCircle size={15} /> Send via Bot + Pay Now</>
                 )}
               </motion.button>
 
@@ -1285,7 +1285,7 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
                 }}>
                   <AlertCircle size={13} color="#D97706" style={{ flexShrink: 0, marginTop: 1 }} />
                   <p style={{ fontSize: 11, color: "#D97706", fontWeight: 600, lineHeight: 1.5 }}>
-                    Select a patient above to enable WhatsApp sending
+                    Select a patient above to enable Bot sending
                   </p>
                 </div>
               )}

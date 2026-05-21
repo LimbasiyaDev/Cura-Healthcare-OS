@@ -5,9 +5,12 @@ export const metadata: Metadata = {
   title: "Cura — Clinical Management",
   description: "Hospital Admin Dashboard",
   icons: {
-    icon: "/logo.jpeg",
-    shortcut: "/logo.jpeg",
-    apple: "/logo.jpeg",
+    icon: [
+      { url: "/icon.png", sizes: "512x512", type: "image/png" },
+      { url: "/icon.png", sizes: "32x32", type: "image/png" },
+    ],
+    shortcut: "/icon.png",
+    apple: "/icon.png",
   },
 };
 

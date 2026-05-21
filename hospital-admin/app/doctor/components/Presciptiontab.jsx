@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 import { motion, AnimatePresence } from "framer-motion";
+import { Mail, Phone } from "lucide-react";
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 const supabase = createClient(
@@ -727,8 +728,14 @@ function PatientDropdown({ value, onChange, doctorId }) {
         ...fieldSt, cursor: "pointer", display: "flex", alignItems: "center",
         justifyContent: "space-between", borderColor: open ? C.accent : C.border,
       }}>
-        <span style={{ color: value ? C.text : C.muted }}>
-          {value ? `${value.name}  ·  ${value.phone}` : "Search by name or phone…"}
+        <span style={{ color: value ? C.text : C.muted, display: "flex", alignItems: "center", gap: 6 }}>
+          {value ? (
+            <>
+              {value.name}  ·  
+              {value.phone?.includes("@") ? <Mail size={12} style={{ opacity: 0.6 }} /> : <Phone size={12} style={{ opacity: 0.6 }} />}
+              {value.phone?.replace(/^web_/, "")}
+            </>
+          ) : "Search by name or phone…"}
         </span>
         <span style={{ color: C.muted, fontSize: 10 }}>▾</span>
       </div>
@@ -757,7 +764,11 @@ function PatientDropdown({ value, onChange, doctorId }) {
                 onMouseLeave={(e) => e.currentTarget.style.background = value?.id === p.id ? C.accent + "18" : "transparent"}
               >
                 <div style={{ fontWeight: 600 }}>{p.name}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{p.phone}{p.age ? ` · Age ${p.age}` : ""}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 1, display: "flex", alignItems: "center", gap: 5 }}>
+                  {p.phone?.includes("@") ? <Mail size={10} style={{ opacity: 0.6 }} /> : <Phone size={10} style={{ opacity: 0.6 }} />}
+                  <span>{p.phone?.replace(/^web_/, "")}</span>
+                  {p.age ? ` · Age ${p.age}` : ""}
+                </div>
               </div>
             ))}
           </div>
@@ -771,16 +782,29 @@ function PatientDropdown({ value, onChange, doctorId }) {
 function DrugInteractionWarning({ medicines }) {
   const [warnings, setWarnings] = useState([]);
 
+  const rxcuis = medicines.map((m) => m.rxcui).filter(Boolean);
+  const [prevLen, setPrevLen] = useState(rxcuis.length);
+  if (rxcuis.length !== prevLen) {
+    setPrevLen(rxcuis.length);
+    if (rxcuis.length < 2 && warnings.length > 0) {
+      setWarnings([]);
+    }
+  }
+
   useEffect(() => {
-    const rxcuis = medicines.map((m) => m.rxcui).filter(Boolean);
-    if (rxcuis.length < 2) { setWarnings([]); return; }
+    if (rxcuis.length < 2) return;
+    let active = true;
     fetch(`https://rxnav.nlm.nih.gov/REST/interaction/list.json?rxcuis=${rxcuis.join("+")}`)
       .then((r) => r.json())
       .then((d) => {
+        if (!active) return;
         const pairs = d.fullInteractionTypeGroup?.[0]?.fullInteractionType || [];
         setWarnings(pairs.map((p) => p.interactionPair?.[0]?.description).filter(Boolean).slice(0, 3));
       })
       .catch(() => {});
+    return () => {
+      active = false;
+    };
   }, [medicines]);
 
   if (!warnings.length) return null;
@@ -1031,8 +1055,13 @@ function PreviewPanel({ form, doctor, draftRef }) {
         <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#e0f2f1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>👤</div>
         <div>
           <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{form.patient?.name || "—"}</div>
-          <div style={{ fontSize: 11, color: C.muted }}>
-            {form.patient?.phone ? `ID: ${form.patient.phone.slice(-8)}` : "No patient selected"}
+          <div style={{ fontSize: 11, color: C.muted, display: "flex", alignItems: "center", gap: 4 }}>
+            {form.patient?.phone ? (
+              <>
+                {form.patient.phone.includes("@") ? <Mail size={10} style={{ opacity: 0.6 }} /> : <Phone size={10} style={{ opacity: 0.6 }} />}
+                <span>ID: {form.patient.phone.replace(/^web_/, "").slice(-8)}</span>
+              </>
+            ) : "No patient selected"}
             {form.patient?.age ? ` · Age: ${form.patient.age}` : ""}
           </div>
         </div>
@@ -1135,9 +1164,9 @@ function PreviewPanel({ form, doctor, draftRef }) {
 }
 
 // ── Prescription Form ─────────────────────────────────────────────────────────
-function RxForm({ doctorId, doctor, editRx, onSaved, onCancel }) {
+function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
   const { push, toasts } = useToast();
-  const draftRef = useRef(draftId());
+  const [draftIdVal] = useState(() => draftId());
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     patient: null,
@@ -1146,7 +1175,9 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel }) {
     medicines: [emptyMed()], tests: [],
   });
 
-  useEffect(() => {
+  const [prevEditRx, setPrevEditRx] = useState(editRx);
+  if (editRx !== prevEditRx) {
+    setPrevEditRx(editRx);
     if (editRx) {
       setForm({
         patient:   editRx._patient || null,
@@ -1158,8 +1189,15 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel }) {
         medicines: (editRx.medicines?.length ? editRx.medicines : [emptyMed()]).map(normalizeMed),
         tests:     editRx.tests || [],
       });
+    } else {
+      setForm({
+        patient: null,
+        date: new Date().toISOString().slice(0, 10),
+        diagnosis: "", notes: "", follow_up: "", status: "active",
+        medicines: [emptyMed()], tests: [],
+      });
     }
-  }, [editRx]);
+  }
 
   const setField  = (k, v) => setForm((p) => ({ ...p, [k]: v }));
   const updateMed = (id, field, val) => setForm((p) => ({ ...p, medicines: p.medicines.map((m) => m._id === id ? { ...m, [field]: val } : m) }));
@@ -1188,6 +1226,17 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel }) {
       : await supabase.from("prescriptions").insert(payload);
     setSaving(false);
     if (error) { push(error.message, "error"); return; }
+
+    // Log WRITE_PHI event
+    if (logPHIAccess) {
+      await logPHIAccess(
+        "WRITE_PHI",
+        payload.patient_name,
+        payload.patient_phone,
+        editRx ? `Updated prescription (ID: ${editRx.id})` : "Created new prescription"
+      );
+    }
+
     push(editRx ? "Prescription updated ✓" : "Prescription saved ✓");
     onSaved();
   };
@@ -1316,7 +1365,7 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel }) {
           </div>
         </div>
 
-        <PreviewPanel form={form} doctor={doctor} draftRef={draftRef.current} />
+        <PreviewPanel form={form} doctor={doctor} draftRef={draftIdVal} />
       </div>
     </>
   );
@@ -1374,7 +1423,7 @@ function RxDetail({ rx }) {
 }
 
 // ── Prescription List ─────────────────────────────────────────────────────────
-function RxList({ prescriptions, loading, onEdit, onDelete, onNew }) {
+function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess }) {
   const [search, setSearch]     = useState("");
   const [filter, setFilter]     = useState("all");
   const [expanded, setExpanded] = useState(null);
@@ -1458,13 +1507,28 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew }) {
             {!loading && filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", padding: 40, color: C.muted, fontSize: 13 }}>No prescriptions found</td></tr>}
             {filtered.map((rx) => (
               <React.Fragment key={rx.id}>
-                <tr onClick={() => setExpanded(expanded === rx.id ? null : rx.id)} style={{ borderTop: `1px solid ${C.border}`, cursor: "pointer" }}
+                <tr onClick={() => {
+                  const isExpanding = expanded !== rx.id;
+                  setExpanded(isExpanding ? rx.id : null);
+                  if (isExpanding && logPHIAccess) {
+                    logPHIAccess("READ_PHI", rx.patient_name, rx.patient_phone, "Expanded prescription details view.");
+                  }
+                }} style={{ borderTop: `1px solid ${C.border}`, cursor: "pointer" }}
                   onMouseEnter={(e) => e.currentTarget.style.background = "#f0fdf4"}
                   onMouseLeave={(e) => e.currentTarget.style.background = "transparent"}
                 >
                   <td style={{ padding: "11px 14px", color: C.text, fontWeight: 600, fontSize: 13 }}>{expanded === rx.id ? "▾ " : "▸ "}{rx.patient_name}</td>
                   <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>{rx.patient_age || "—"}</td>
-                  <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>{rx.patient_phone || "—"}</td>
+                  <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      {rx.patient_phone ? (
+                        <>
+                          {rx.patient_phone.includes("@") ? <Mail size={12} style={{ opacity: 0.6 }} /> : <Phone size={12} style={{ opacity: 0.6 }} />}
+                          <span>{rx.patient_phone.replace(/^web_/, "")}</span>
+                        </>
+                      ) : "—"}
+                    </div>
+                  </td>
                   <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>{fmt(rx.date)}</td>
                   <td style={{ padding: "11px 14px", color: C.text, fontSize: 13, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rx.diagnosis}</td>
                   <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>{rx.medicines?.length || 0} med(s)</td>
@@ -1473,7 +1537,12 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew }) {
                   <td style={{ padding: "11px 14px" }}>
                     <div style={{ display: "flex", gap: 6 }} onClick={(e) => e.stopPropagation()}>
                       <button onClick={() => onEdit(rx)} style={{ background: "#f0fdf4", border: `1px solid ${C.accent}44`, color: C.accentDk, borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer", fontWeight: 600 }}>✎</button>
-                      <button onClick={() => printRx(rx)} style={{ background: "#eff6ff", border: "1px solid #bfdbfe", color: C.info, borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>⎙</button>
+                      <button onClick={() => {
+                        if (logPHIAccess) {
+                          logPHIAccess("READ_PHI", rx.patient_name, rx.patient_phone, "Printed/Exported prescription PDF.");
+                        }
+                        printRx(rx);
+                      }} style={{ background: "#eff6ff", border: "1px solid #bfdbfe", color: C.info, borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>⎙</button>
                       <button onClick={() => onDelete(rx.id)} style={{ background: "#fef2f2", border: "1px solid #fca5a5", color: C.danger, borderRadius: 6, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>🗑</button>
                     </div>
                   </td>
@@ -1508,18 +1577,47 @@ export default function PrescriptionTab({ doctorId }) {
 
   const fetchPrescriptions = useCallback(async () => {
     if (!doctorId) return;
-    setLoading(true);
+    Promise.resolve().then(() => setLoading(true));
     const { data, error } = await supabase
       .from("prescriptions")
       .select("id,patient_name,patient_phone,patient_age,date,diagnosis,medicines,tests,notes,follow_up,status,created_at,updated_at")
       .eq("doctor_id", doctorId)
       .order("created_at", { ascending: false });
-    setLoading(false);
-    if (error) { push(error.message, "error"); return; }
+    if (error) {
+      setLoading(false);
+      push(error.message, "error");
+      return;
+    }
     setPrescriptions(data || []);
-  }, [doctorId]);
+    setLoading(false);
+  }, [doctorId, push]);
 
-  useEffect(() => { fetchPrescriptions(); }, [fetchPrescriptions]);
+  useEffect(() => {
+    let active = true;
+    const t = setTimeout(() => {
+      if (active) fetchPrescriptions();
+    }, 0);
+    return () => {
+      active = false;
+      clearTimeout(t);
+    };
+  }, [fetchPrescriptions]);
+
+  const logPHIAccess = useCallback(async (actionType, patientName, patientPhone, notes = "") => {
+    if (!doctorId) return;
+    try {
+      await supabase.from("audit_logs").insert([{
+        actor_id: doctorId,
+        actor_role: "doctor",
+        action_type: actionType,
+        phi_category: "prescriptions",
+        patient_identifier: patientPhone,
+        description: `Doctor accessed prescription context. Patient: ${patientName}. ${notes}`
+      }]);
+    } catch (err) {
+      console.error("Audit log failed:", err);
+    }
+  }, [doctorId]);
 
   return (
     <div style={{ fontFamily: "'DM Sans','Segoe UI',sans-serif", color: C.text, background: C.bg, minHeight: "100vh", padding: 24 }}>
@@ -1547,6 +1645,7 @@ export default function PrescriptionTab({ doctorId }) {
               push("Prescription deleted"); fetchPrescriptions();
             }}
             onNew={() => { setEditRx(null); setView("form"); }}
+            logPHIAccess={logPHIAccess}
           />
         </>
       )}
@@ -1556,6 +1655,7 @@ export default function PrescriptionTab({ doctorId }) {
           doctorId={doctorId} doctor={doctor} editRx={editRx}
           onSaved={() => { setView("list"); setEditRx(null); fetchPrescriptions(); }}
           onCancel={() => { setView("list"); setEditRx(null); }}
+          logPHIAccess={logPHIAccess}
         />
       )}
     </div>

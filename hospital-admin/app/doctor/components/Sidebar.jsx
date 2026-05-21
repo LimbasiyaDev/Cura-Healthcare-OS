@@ -17,7 +17,9 @@ export default function DoctorSidebar({ activeNav, setActiveNav, doctor, onSignO
   return (
     <aside className="sidebar">
       <div className="sidebar-logo">
-        <div className="logo-icon"><BedDouble size={18} color="white" /></div>
+        <div className="logo-icon" style={{ overflow: "hidden" }}>
+          <img src="/logo.jpeg" alt="Cura" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        </div>
         <div>
           <div className="logo-text">Cura</div>
           <div className="logo-sub">Doctor Portal</div>

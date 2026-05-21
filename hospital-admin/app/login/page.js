@@ -152,12 +152,25 @@ export default function LoginPage() {
           style={{ position: "relative", zIndex: 1 }}
         >
           <div style={{
-            width: 64, height: 64, borderRadius: 18,
+            width: 72, height: 72, borderRadius: 20,
             overflow: "hidden", marginBottom: 24,
-            boxShadow: "0 8px 28px rgba(0,0,0,0.25)",
-            border: "2px solid rgba(255,255,255,0.15)",
+            boxShadow: "0 8px 28px rgba(0,0,0,0.3)",
+            border: "2px solid rgba(255,255,255,0.2)",
+            background: "white",
+            flexShrink: 0,
           }}>
-            <img src="/logo.jpeg" alt="Cura" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+            <img
+              src="/logo.jpeg"
+              alt="Cura"
+              style={{
+                width: "100%", height: "100%",
+                objectFit: "cover",
+                objectPosition: "center",
+                display: "block",
+                transform: "scale(1.45)",
+                transformOrigin: "center",
+              }}
+            />
           </div>
           <h1 style={{
             fontFamily: "'Syne', sans-serif", fontWeight: 900,
@@ -198,12 +211,11 @@ export default function LoginPage() {
             The clinic that<br />
             <span style={{ color: "rgba(78,204,163,0.95)", fontStyle: "italic" }}>answers itself.</span>
           </h2>
-          <p style={{
-            color: "rgba(255,255,255,0.45)", fontSize: 14,
-            lineHeight: 1.8, maxWidth: 300, fontWeight: 400,
-          }}>
-            WhatsApp-powered appointment automation for modern healthcare facilities.
-          </p>
+          <div style={{ marginTop: 40, textAlign: "center" }}>
+            <p style={{ fontSize: 14, color: "rgba(255,255,255,0.7)", fontWeight: 500, lineHeight: 1.6, margin: 0 }}>
+              Automated appointment system for modern healthcare facilities.
+            </p>
+          </div>
         </motion.div>
 
         {/* Bottom features */}
@@ -248,7 +260,7 @@ export default function LoginPage() {
             backdropFilter: "blur(20px)",
             transition: "all 0.2s",
           }}
-          whileHover={{ color: PRIMARY, background: "white", scale: 1.02 }}
+          whileHover={{ color: PRIMARY, background: "#ffffff", scale: 1.02 }}
         >
           <ArrowLeft size={12} />
           Home
@@ -262,10 +274,24 @@ export default function LoginPage() {
           className="lg:hidden mb-10 text-center"
         >
           <div style={{
-            width: 52, height: 52, borderRadius: 16, background: PRIMARY,
-            display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 12px",
+            width: 56, height: 56, borderRadius: 16,
+            overflow: "hidden", margin: "0 auto 12px",
+            boxShadow: "0 4px 16px rgba(20,61,48,0.2)",
+            border: "2px solid rgba(20,61,48,0.12)",
+            background: "white",
           }}>
-            <span style={{ color: "white", fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 22 }}>D</span>
+            <img
+              src="/logo.jpeg"
+              alt="Cura"
+              style={{
+                width: "100%", height: "100%",
+                objectFit: "cover",
+                objectPosition: "center",
+                display: "block",
+                transform: "scale(1.45)",
+                transformOrigin: "center",
+              }}
+            />
           </div>
           <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 24, color: "#0F172A" }}>Cura</h1>
         </motion.div>
@@ -501,7 +527,17 @@ export default function LoginPage() {
                 </motion.button>
 
                 <button
-                  onClick={async () => { await supabase.auth.signOut(); setShowResetModal(false); setNewPassword(""); setConfirmPassword(""); setResetError(null); }}
+                  onClick={async () => {
+                    try {
+                      await supabase.auth.signOut();
+                    } catch (err) {
+                      console.warn("SignOut error:", err);
+                    }
+                    setShowResetModal(false);
+                    setNewPassword("");
+                    setConfirmPassword("");
+                    setResetError(null);
+                  }}
                   style={{ width: "100%", padding: "10px", background: "none", border: "none", cursor: "pointer", color: "#94A3B8", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", fontFamily: "'Syne',sans-serif", transition: "color 0.2s" }}
                   onMouseEnter={(e) => e.target.style.color = "#64748B"}
                   onMouseLeave={(e) => e.target.style.color = "#94A3B8"}

@@ -13,7 +13,7 @@ export default function Step1({ data, onChange }) {
     <div>
       <p style={{ fontSize:10, fontWeight:800, letterSpacing:"0.2em", textTransform:"uppercase", color:"#143D30", fontFamily:"'Syne',sans-serif", marginBottom:6 }}>MEDICAL CREDENTIALING · STEP 01</p>
       <h1 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:32, color:"#0F172A", letterSpacing:"-0.04em", marginBottom:6 }}>Personal Details</h1>
-      <p style={{ fontSize:14, color:"#64748B", marginBottom:36 }}>Provide the specialist's personal and professional identification information.</p>
+      <p style={{ fontSize:14, color:"#64748B", marginBottom:36 }}>Provide the specialist&apos;s personal and professional identification information.</p>
 
       {/* Avatar preview */}
       <div style={{ display:"flex", alignItems:"center", gap:20, marginBottom:32, padding:"20px 24px", background:"white", borderRadius:18, border:"1.5px solid rgba(20,61,48,0.09)", boxShadow:"0 2px 12px rgba(0,0,0,0.04)" }}>
@@ -43,7 +43,7 @@ export default function Step1({ data, onChange }) {
 
         <div style={row}>
           <div style={half}>
-            <label style={lbl}>WHATSAPP PHONE *</label>
+            <label style={lbl}>PHONE NUMBER *</label>
             <input style={inp} placeholder="91XXXXXXXXXX (with country code)" value={data.phone} onChange={e=>set("phone",e.target.value)}
               onFocus={e=>e.target.style.borderColor="#143D30"} onBlur={e=>e.target.style.borderColor="rgba(20,61,48,0.12)"}/>
           </div>
@@ -71,7 +71,7 @@ export default function Step1({ data, onChange }) {
         <div style={{ background:"#FFFBEB", border:"1.5px solid #FDE68A", borderRadius:13, padding:"13px 16px", display:"flex", gap:10, alignItems:"flex-start" }}>
           <span style={{ fontSize:18, flexShrink:0 }}>🔑</span>
           <p style={{ fontSize:12.5, color:"#92400E", lineHeight:1.6 }}>
-            A secure login invite and default password will be sent directly to the doctor's WhatsApp number after onboarding is complete.
+            A secure login invite and default password will be sent directly to the doctor after onboarding is complete.
           </p>
         </div>
       </div>

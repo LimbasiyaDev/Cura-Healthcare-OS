@@ -17,7 +17,7 @@ import {
   RefreshCw, Bell, CheckCircle2, XCircle, Clock, Calendar,
   Settings, Zap, Users, BarChart3, ChevronLeft, ChevronRight,
   Search, Trash2, Edit3, AlertTriangle, LogOut, X, Activity,
-  TrendingUp, Shield, Star, Download, Plus, Phone, FileText, HelpCircle
+  TrendingUp, Shield, Star, Download, Plus, Phone, FileText, HelpCircle, Mail
 } from "lucide-react";
 
 const supabase = createBrowserClient(
@@ -139,7 +139,7 @@ function SupportModal({ onClose, showToast, supabase }) {
             <div style={{ width:44, height:44, borderRadius:14, background:"#143D30", display:"flex", alignItems:"center", justifyContent:"center" }}><HelpCircle size={20} color="white"/></div>
             <div>
               <p style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18, color:"#0F172A", margin:0 }}>Support</p>
-              <p style={{ fontSize:11, color:"#94A3B8", fontWeight:600, margin:0 }}>We'll get back to you shortly</p>
+              <p style={{ fontSize:11, color:"#94A3B8", fontWeight:600, margin:0 }}>We&apos;ll get back to you shortly</p>
             </div>
           </div>
           <button onClick={onClose} style={{ width:32, height:32, borderRadius:999, background:"rgba(20,61,48,0.06)", border:"none", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#94A3B8", fontSize:18 }}>✕</button>
@@ -148,7 +148,7 @@ function SupportModal({ onClose, showToast, supabase }) {
           <div style={{ textAlign:"center", padding:"24px 0" }}>
             <div style={{ fontSize:48, marginBottom:12 }}>✅</div>
             <p style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:"#0F172A", marginBottom:6 }}>Ticket Submitted!</p>
-            <p style={{ color:"#94A3B8", fontSize:13 }}>We've received your request and will respond soon.</p>
+            <p style={{ color:"#94A3B8", fontSize:13 }}>We&apos;ve received your request and will respond soon.</p>
           </div>
         ) : (
           <div style={{ display:"flex", flexDirection:"column", gap:14 }}>
@@ -273,12 +273,13 @@ export default function DoctorDashboard() {
 
   const fetchData = useCallback(async (silent=false) => {
     if (!silent) setLoading(true); else setRefreshing(true);
+    let isRedirecting = false;
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user;
-      if (!user) { router.push("/login"); return; }
+      if (!user) { isRedirecting = true; router.push("/login"); return; }
       const { data:doc, error:docErr } = await supabase.from("doctors").select("*").eq("user_id", user.id).single();
-      if (!doc||docErr) { router.push("/login"); return; }
+      if (!doc||docErr) { isRedirecting = true; router.push("/login"); return; }
       const { data:override } = await supabase.from("date_overrides").select("working_hours")
         .eq("doctor_id",doc.id).eq("date",todayStr).single();
       const [appRes, blkRes, holRes] = await Promise.all([
@@ -291,10 +292,45 @@ export default function DoctorDashboard() {
       setHolidays(holRes.data?.map(h=>h.date)||[]);
       setDoctor({...doc, active_hours: override ? override.working_hours : doc.working_hours });
     } catch(err) { if (!silent) toast("Failed to load data","error"); }
-    finally { setLoading(false); setRefreshing(false); }
+    finally { 
+      if (!isRedirecting) {
+        setLoading(false); 
+        setRefreshing(false); 
+      }
+    }
   }, [todayStr, router, toast]);
 
   useEffect(() => { fetchData(); }, []); 
+
+  // Handle auto logout on browser back
+  useEffect(() => {
+    if (loading || !doctor) return;
+
+    // Push a dummy state so that there is a state to pop when user clicks "Back"
+    window.history.pushState(null, null, window.location.href);
+
+    const handlePopState = async () => {
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn("Popstate signOut error:", err);
+      }
+      router.push("/login");
+    };
+
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    window.addEventListener("pageshow", handlePageShow);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("pageshow", handlePageShow);
+    };
+  }, [loading, doctor, router]);
   useEffect(() => {
   // We need the doctor id before we can scope the subscription.
   // Poll until doctor is loaded, then subscribe.
@@ -473,7 +509,14 @@ export default function DoctorDashboard() {
         setActiveNav={setActiveNav}
         doctor={doctor}
         onSupportClick={() => setShowSupport(true)}
-        onSignOut={async()=>{ await supabase.auth.signOut(); router.push("/login"); }}
+        onSignOut={async()=>{
+          try {
+            await supabase.auth.signOut();
+          } catch(err) {
+            console.warn("SignOut error:", err);
+          }
+          router.push("/login");
+        }}
       />
 
       {/* MAIN */}
@@ -642,7 +685,10 @@ export default function DoctorDashboard() {
                           </div>
                           <div style={{minWidth:0}}>
                             <div style={{fontWeight:700,fontSize:14,color:"#0F172A",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{a.name}</div>
-                            <div style={{fontSize:12,color:"#94A3B8"}}>{a.phone}</div>
+                            <div style={{fontSize:12,color:"#94A3B8",display:"flex",alignItems:"center",gap:4,marginTop:2}}>
+                               {a.phone?.includes("@") ? <Mail size={11}/> : <Phone size={11}/>}
+                               <span>{a.phone?.replace(/^web_/, "")}</span>
+                             </div>
                           </div>
                         </div>
                         <span style={{fontSize:13,fontWeight:600,color:"#475569",display:"flex",alignItems:"center",gap:6}}><Calendar size={13} color="#94A3B8"/> {a.date}</span>
@@ -783,7 +829,14 @@ export default function DoctorDashboard() {
                   </div>
                 </div>
                 <button onClick={()=>setConfirmModal({open:true,title:"Sign Out?",message:"You will be logged out of Cura Doctor Portal.",danger:false,
-                  onConfirm:async()=>{await supabase.auth.signOut();router.push("/login");},
+                  onConfirm:async()=>{
+                    try {
+                      await supabase.auth.signOut();
+                    } catch(err) {
+                      console.warn("SignOut error:", err);
+                    }
+                    router.push("/login");
+                  },
                   onCancel:()=>setConfirmModal({open:false})})}
                   style={{ padding:"12px 28px", background:"white", color:"#EF4444", border:"1.5px solid #FECACA",
                     borderRadius:14, fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:11, textTransform:"uppercase", cursor:"pointer", display:"flex", alignItems:"center", gap:8 }}>
