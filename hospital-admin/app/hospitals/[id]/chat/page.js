@@ -157,8 +157,9 @@ export default function HospitalChatPage() {
   const [loadingHosp, setLoadingHosp] = useState(true);
 
   // Portal active tab
-  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "messages" | "appointments" | "profile" | "permissions"
+  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "messages" | "appointments" | "profile" | "permissions" | "billing"
   const [apptFilter, setApptFilter] = useState("all");
+  const [billingFilter, setBillingFilter] = useState("all");
 
   // Portal database states
   const [appointments, setAppointments] = useState([]);
@@ -1247,7 +1248,10 @@ export default function HospitalChatPage() {
         <div style={{ background: "white", padding: 24, borderRadius: 24, border: "1px solid #E2E8F0", display: "flex", flexDirection: "column", gap: 16, marginTop: 20 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: T.primary, fontFamily: "'Syne', sans-serif" }}>Invoices & Billing</h4>
-            <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{invoices.length} total</span>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{invoices.length} total</span>
+              <button onClick={() => setActiveTab("billing")} style={{ background: "transparent", border: "none", color: T.teal, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>View All Bills</button>
+            </div>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
@@ -1424,7 +1428,109 @@ export default function HospitalChatPage() {
     );
   };
 
-  // 3. MEDICAL PROFILE TAB
+  // 3. BILLING & INVOICES TAB
+  const renderBilling = () => {
+    let filteredInvoices = invoices;
+    if (billingFilter === "paid") filteredInvoices = invoices.filter(inv => inv.payment_status?.toLowerCase() === "paid");
+    if (billingFilter === "pending") filteredInvoices = invoices.filter(inv => inv.payment_status?.toLowerCase() === "pending");
+    if (billingFilter === "failed") filteredInvoices = invoices.filter(inv => inv.payment_status?.toLowerCase() === "failed");
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: "8px 12px", overflowY: "auto", flex: 1, maxHeight: "calc(100vh - 48px)", maxWidth: 1200, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
+        {/* Title */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2 style={{ fontSize: 28, fontWeight: 900, color: T.primary, margin: 0, fontFamily: "'Syne', sans-serif" }}>Billing & Invoices</h2>
+            <p style={{ margin: "4px 0 0 0", color: T.sub, fontSize: 13 }}>Review your payment history, pending bills, and itemized receipts.</p>
+          </div>
+        </div>
+
+        {/* Tab Filters */}
+        <div style={{ display: "flex", gap: 12, borderBottom: "1px solid #E2E8F0", paddingBottom: 12 }}>
+          <button onClick={() => setBillingFilter("all")} style={{ background: billingFilter === "all" ? "#0D3327" : "transparent", color: billingFilter === "all" ? "white" : T.sub, border: "none", padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>All Bills ({invoices.length})</button>
+          <button onClick={() => setBillingFilter("paid")} style={{ background: billingFilter === "paid" ? "#0D3327" : "transparent", color: billingFilter === "paid" ? "white" : T.sub, border: "none", padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Paid</button>
+          <button onClick={() => setBillingFilter("pending")} style={{ background: billingFilter === "pending" ? "#0D3327" : "transparent", color: billingFilter === "pending" ? "white" : T.sub, border: "none", padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Pending</button>
+          <button onClick={() => setBillingFilter("failed")} style={{ background: billingFilter === "failed" ? "#0D3327" : "transparent", color: billingFilter === "failed" ? "white" : T.sub, border: "none", padding: "8px 16px", borderRadius: 8, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>Failed</button>
+        </div>
+
+        {/* Invoices List */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          {filteredInvoices.length > 0 ? (
+            filteredInvoices.map(inv => {
+              const isPaid = inv.payment_status?.toLowerCase() === "paid";
+              const isPending = inv.payment_status?.toLowerCase() === "pending";
+              const isFailed = inv.payment_status?.toLowerCase() === "failed";
+              let statusBg = "#F1F5F9"; let statusColor = "#64748B";
+              if (isPaid) { statusBg = "#D1FAE5"; statusColor = "#065F46"; }
+              if (isPending) { statusBg = "#FEF3C7"; statusColor = "#D97706"; }
+              if (isFailed) { statusBg = "#FEE2E2"; statusColor = "#991B1B"; }
+
+              return (
+                <div key={inv.id} style={{ background: "white", borderRadius: 20, border: "1px solid #E2E8F0", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+                  <div style={{ padding: 24, borderBottom: "1px dashed #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 16 }}>
+                    <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+                      <div style={{ width: 48, height: 48, borderRadius: "50%", background: statusBg, display: "flex", alignItems: "center", justifyContent: "center", color: statusColor, flexShrink: 0 }}>
+                        <Receipt size={24} />
+                      </div>
+                      <div>
+                        <h4 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 800, color: T.primary }}>Invoice #{inv.invoice_num}</h4>
+                        <p style={{ margin: 0, fontSize: 13, color: T.sub }}>Dr. {inv.doctors?.name || "Specialist"} · {inv.created_at?.split("T")?.[0]}</p>
+                      </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                      <h3 style={{ margin: "0 0 6px 0", fontSize: 20, fontWeight: 900, color: T.primary }}>₹{Number(inv.total).toFixed(2)}</h3>
+                      <span style={{ fontSize: 11, background: statusBg, color: statusColor, padding: "4px 10px", borderRadius: 8, fontWeight: 700, textTransform: "capitalize" }}>
+                        {inv.payment_status || "Pending"}
+                      </span>
+                    </div>
+                  </div>
+                  <div style={{ padding: 24, background: "#F8FAFC" }}>
+                    <h5 style={{ margin: "0 0 12px 0", fontSize: 12, fontWeight: 800, color: T.sub, textTransform: "uppercase", letterSpacing: "0.05em" }}>Itemized Breakdown</h5>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {inv.items?.map((item, i) => (
+                        <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.text }}>
+                          <span>{item.qty}x {item.desc}</span>
+                          <span style={{ fontWeight: 600 }}>₹{Number(item.price * item.qty).toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #E2E8F0", display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub }}>
+                        <span>Subtotal</span><span>₹{Number(inv.subtotal || 0).toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub }}>
+                        <span>Tax / Fees</span><span>₹{Number(inv.tax || 0).toFixed(2)}</span>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#059669" }}>
+                        <span>Discount</span><span>- ₹{Number(inv.discount || 0).toFixed(2)}</span>
+                      </div>
+                    </div>
+                    {!isPaid && (
+                      <div style={{ marginTop: 20, display: "flex", justifyContent: "flex-end" }}>
+                        <a href={`${BOT_URL}/pay/${inv.invoice_num}`} target="_blank" rel="noopener noreferrer" style={{ textDecoration: "none" }}>
+                          <button style={{ background: T.teal, color: "white", padding: "10px 20px", borderRadius: 12, border: "none", fontSize: 13, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", gap: 8 }}>
+                            <CreditCard size={14} /> Pay Now
+                          </button>
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div style={{ textShadow: "none", padding: "48px 24px", textAlign: "center", color: T.sub, display: "flex", flexDirection: "column", alignItems: "center", gap: 12, background: "white", borderRadius: 20, border: "1px solid #E2E8F0" }}>
+              <Receipt size={36} color={T.muted} />
+              <h4 style={{ margin: 0, color: T.primary, fontSize: 16, fontWeight: 800 }}>No Bills Found</h4>
+              <p style={{ margin: 0, fontSize: 13 }}>You don't have any invoices in this category.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  // 4. MEDICAL PROFILE TAB
   const renderMedicalProfile = () => {
     // Generate simple timeline events from actual appointments & prescriptions
     const timeline = [];
@@ -2104,6 +2210,7 @@ export default function HospitalChatPage() {
             <NavItem icon={<LayoutDashboard size={18} />} label="Dashboard" active={activeTab === "dashboard"} onClick={() => setActiveTab("dashboard")} />
             <NavItem icon={<MessageSquare size={18} />} label="Messages" active={activeTab === "messages"} onClick={() => setActiveTab("messages")} />
             <NavItem icon={<Calendar size={18} />} label="Appointments" active={activeTab === "appointments"} onClick={() => setActiveTab("appointments")} />
+            <NavItem icon={<Receipt size={18} />} label="Billing & Invoices" active={activeTab === "billing"} onClick={() => setActiveTab("billing")} />
             <NavItem icon={<FileText size={18} />} label="Medical Profile" active={activeTab === "profile"} onClick={() => setActiveTab("profile")} />
             <NavItem icon={<ShieldPlus size={18} />} label="Data Permissions" active={activeTab === "permissions"} onClick={() => setActiveTab("permissions")} />
           </div>
@@ -2198,6 +2305,7 @@ export default function HospitalChatPage() {
           <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: 0, height: "100%", maxHeight: "100%", overflow: "hidden" }}>
             {activeTab === "dashboard" && renderDashboard()}
             {activeTab === "appointments" && renderAppointments()}
+            {activeTab === "billing" && renderBilling()}
             {activeTab === "profile" && renderMedicalProfile()}
             {activeTab === "permissions" && renderPermissions()}
             {activeTab === "messages" && (
