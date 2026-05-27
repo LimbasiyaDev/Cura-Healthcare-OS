@@ -1,5 +1,5 @@
 # Use a lightweight Node.js Alpine image for minimal size and high performance
-FROM node:18-alpine
+FROM node:26.2.0-alpine
 
 # Set working directory inside container
 WORKDIR /usr/src/app
