@@ -1,6 +1,7 @@
 "use client";
 import InvoiceTab from "./components/InvoiceTab";
 import PrescriptionTab from "./components/Presciptiontab";
+import LabTestTab from "./components/LabTestTab";
 import DoctorSidebar from "./components/Sidebar";
 import ShiftStatus from "./components/ShiftStatus";
 import BookingSchedule from "./components/BookingSchedule";
@@ -282,12 +283,21 @@ export default function DoctorDashboard() {
       if (!doc||docErr) { isRedirecting = true; router.push("/login"); return; }
       const { data:override } = await supabase.from("date_overrides").select("working_hours")
         .eq("doctor_id",doc.id).eq("date",todayStr).single();
-      const [appRes, blkRes, holRes] = await Promise.all([
+      const [appRes, blkRes, holRes, wpRes] = await Promise.all([
         supabase.from("appointments").select("*").eq("doctor_id",doc.id).order("date",{ascending:false}),
         supabase.from("blocked_slots").select("slot").eq("doctor_id",doc.id).eq("date",todayStr),
         supabase.from("doctor_holidays").select("date").eq("doctor_id",doc.id),
+        supabase.from("web_patients").select("phone, email, uid"),
       ]);
-      setAppointments(appRes.data||[]);
+      const uidMap = {};
+      if (wpRes.data) {
+        wpRes.data.forEach(wp => {
+          if (wp.phone) uidMap[wp.phone] = wp.uid;
+          if (wp.email) { uidMap[wp.email] = wp.uid; uidMap[`web_${wp.email}`] = wp.uid; }
+        });
+      }
+      const finalAppts = (appRes.data||[]).map(a => ({ ...a, patient_uid: uidMap[a.phone] || null }));
+      setAppointments(finalAppts);
       setBlockedSlots(blkRes.data?.map(b=>b.slot)||[]);
       setHolidays(holRes.data?.map(h=>h.date)||[]);
       setDoctor({...doc, active_hours: override ? override.working_hours : doc.working_hours });
@@ -379,7 +389,7 @@ export default function DoctorDashboard() {
 
   useEffect(() => { fetchRef.current = fetchData; }, [fetchData]);
   useEffect(() => {
-    const id = setInterval(() => fetchRef.current?.(true), 90000);
+    const id = setInterval(() => fetchRef.current?.(true), 30000);
     return () => clearInterval(id);
   }, []);
 
@@ -852,6 +862,11 @@ export default function DoctorDashboard() {
           {/* ── PRESCRIPTIONS ── */}
           {activeNav==="prescriptions" && (
             <PrescriptionTab doctorId={doctor?.id} />
+          )}
+
+          {/* ── LAB TESTS ── */}
+          {activeNav==="lab_tests" && (
+            <LabTestTab doctorId={doctor?.id} />
           )}
 
         </div>

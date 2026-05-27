@@ -1,0 +1,10 @@
+node_modules
+npm-debug.log
+.wwebjs_auth
+.wwebjs_cache
+logs
+.env*
+.git
+.github
+hospital-admin/.next
+hospital-admin/node_modules

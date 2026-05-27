@@ -109,7 +109,7 @@ function PatientSearchBox({ appointments, onSelect, selected }) {
     appointments.reduce((acc, a) => {
       const key = `${a.name}-${a.phone}`;
       if (!acc[key]) {
-        acc[key] = { name: a.name, phone: a.phone, dates: [a.date], lastVisit: a.date, status: a.status, id: a.id };
+        acc[key] = { name: a.name, phone: a.phone, dates: [a.date], lastVisit: a.date, status: a.status, id: a.id, patient_uid: a.patient_uid };
       } else {
         acc[key].dates.push(a.date);
         if (a.date > acc[key].lastVisit) acc[key].lastVisit = a.date;
@@ -429,8 +429,8 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
     setSelectedPatient(p);
     if (p) {
       setPatName(p.name || "");
-      setPatPhone(p.phone || "");
-      setPatId(`P-${p.id?.toString().slice(-6).toUpperCase() || "000000"}`);
+      setPatPhone(p.phone?.replace(/^web_/, "") || "");
+      setPatId(p.patient_uid ? `#${p.patient_uid}` : `P-${p.id?.toString().slice(-6).toUpperCase() || "000000"}`);
     } else {
       setPatName(""); setPatPhone(""); setPatId("");
     }
@@ -481,6 +481,44 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
 
     setSending(true);
     try {
+      const dbPayload = {
+        invoice_num:        invNumRef.current,
+        doctor_id:          doctor?.id || null,
+        patient_name:       patName,
+        patient_phone:      patPhone,
+        patient_id:         patId || null,
+        visit_date:         visitDate || null,
+        due_date:           dueDate || null,
+        facility:           facility || null,
+        items:              items.map(it => ({ desc: it.desc, category: it.category, price: Number(it.price), qty: Number(it.qty) })),
+        subtotal:           Number(subtotal),
+        tax:                Number(tax),
+        insurance_adj:      Number(ins),
+        discount:           Number(disc),
+        total:              Number(total),
+        payment_status:     payStatus || 'Pending',
+        insurance_provider: insProvider || null,
+        notes:              billNotes || null,
+        sent_via_whatsapp:  true,
+        whatsapp_sent_at:   new Date().toISOString(),
+      };
+
+      // 1. Save to Supabase first using secure server-side API to bypass RLS
+      const token = localStorage.getItem('cura_access_token') || '';
+      const saveRes = await fetch("/api/save-invoice", {
+        method:  "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body:    JSON.stringify(dbPayload),
+      });
+
+      if (!saveRes.ok) {
+        const err = await saveRes.json().catch(() => ({}));
+        throw new Error(err.error || `Database error ${saveRes.status}`);
+      }
+
       const payload = {
         phone:       patPhone,
         patientName: patName,
@@ -500,6 +538,7 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
         insProvider,
         notes:       billNotes,
         hospitalId:  doctor?.hospital_id,
+        doctorId:    doctor?.id,
         // The bot will build the pay page URL from this
         taxEnabled:  taxOn,
       };

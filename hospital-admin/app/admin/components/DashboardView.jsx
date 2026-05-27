@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   BedDouble, Calendar, TrendingUp, UserPlus, CalendarPlus,
-  FileText, Pill, MoreHorizontal, ChevronRight, ArrowUpRight
+  FileText, Pill, MoreHorizontal, ChevronRight, ArrowUpRight, Globe, Plus
 } from "lucide-react";
+import { motion } from "framer-motion";
 
 /* ─── mini line chart ──────────────────────────────────────────────────────── */
 function MiniChart({ data = [], color = "#143D30", height = 80, labels = [] }) {
@@ -69,6 +71,7 @@ const BG_COLORS = ["#143D30", "#1E40AF", "#7C3AED", "#D97706", "#059669", "#DC26
    DASHBOARD VIEW
 ══════════════════════════════════════════════════════════════════════════════ */
 export default function DashboardView({ hospitals, doctors, appointments, activeHospital, onNavigate, showToast }) {
+  const router = useRouter();
   const [revenueRange, setRevenueRange] = useState("Weekly");
 
   const today = new Date().toISOString().split("T")[0];
@@ -140,121 +143,150 @@ export default function DashboardView({ hospitals, doctors, appointments, active
   return (
     <>
       {/* ── PAGE HEADER ──────────────────────────────────────────────────────── */}
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 30, color: "#0F172A", letterSpacing: "-0.04em", marginBottom: 4 }}>Clinical Overview</h1>
-        <p style={{ fontSize: 13.5, color: "#64748B" }}>Real-time performance metrics for {activeHospital?.name || "your hospital"}.</p>
+      <div style={{ marginBottom: 32, display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 16 }}>
+        <div>
+          <h1 style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 32, color: "#114734", letterSpacing: "-0.04em", marginBottom: 6 }}>Clinical Overview</h1>
+          <p style={{ fontSize: 13.5, color: "#64748B", fontWeight: 500 }}>Real-time performance metrics for {activeHospital?.name || "your hospital"}.</p>
+        </div>
+        <div style={{ display: "flex", gap: 12 }}>
+          {[
+            { label: "ONBOARD PHARMACY", path: "/admin/onboard/pharmacy" },
+            { label: "ONBOARD LABORATORY", path: "/admin/onboard/laboratory" },
+            { label: "ONBOARD SPECIALIST", path: "/admin/onboard/specialist" }
+          ].map((btn, idx) => (
+            <motion.button key={idx} whileHover={{ scale: 1.02, y: -2 }} whileTap={{ scale: 0.98 }}
+              onClick={() => router.push(btn.path)}
+              style={{
+                display: "flex", alignItems: "center", gap: 8, padding: "14px 20px", borderRadius: 12,
+                background: "#143D30", color: "white", border: "none", cursor: "pointer",
+                fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 11, letterSpacing: "0.06em",
+                boxShadow: "0 8px 24px rgba(20,61,48,0.25)"
+              }}>
+              <Plus size={14} style={{ opacity: 0.8 }} />
+              {btn.label}
+            </motion.button>
+          ))}
+        </div>
       </div>
 
       {/* ── STAT CARDS ───────────────────────────────────────────────────────── */}
-      {/* ── STAT CARDS ───────────────────────────────────────────────────────── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr 1fr 1.2fr", gap: 16, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.1fr 1.1fr 1fr", gap: 16, marginBottom: 24 }}>
 
         {/* Bed Occupancy */}
-        <div style={{ background: "white", borderRadius: 20, padding: "22px 22px 18px", border: "1px solid rgba(20,61,48,0.06)", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", position: "relative", overflow: "hidden" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-            <div style={{ width: 42, height: 42, borderRadius: 13, background: "#EAF2EE", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <BedDouble size={19} color="#143D30" />
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+          style={{ background: "white", borderRadius: 24, padding: "26px", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", position: "relative", overflow: "hidden", display: "flex", flexDirection: "column" }}>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: "#F1F7F4", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "auto" }}>
+            <Globe size={20} color="#143D30" />
+          </div>
+          <div style={{ marginTop: 32 }}>
+            <p style={{ fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "#94A3B8", fontFamily: "'Syne',sans-serif", margin: "0 0 10px" }}>BED OCCUPANCY</p>
+            <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 40, color: "#143D30", letterSpacing: "-0.05em", lineHeight: 1, marginBottom: 16 }}>
+              {bedOccupied}<span style={{ fontSize: 20, fontWeight: 700, color: "#94A3B8" }}>/{bedTotal}</span>
+            </p>
+            <div style={{ height: 6, background: "#F1F5F9", borderRadius: 999, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${bedPct}%`, background: bedPct >= 80 ? "#EF4444" : "#143D30", borderRadius: 999 }} />
             </div>
           </div>
-          <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: "#94A3B8", fontFamily: "'Syne',sans-serif", margin: "14px 0 6px" }}>BED OCCUPANCY</p>
-          <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 32, color: "#0F172A", letterSpacing: "-0.05em", lineHeight: 1, marginBottom: 14 }}>
-            {bedOccupied}<span style={{ fontSize: 18, fontWeight: 600, color: "#94A3B8" }}>/{bedTotal}</span>
-          </p>
-          <div style={{ height: 5, background: "#E8EFEB", borderRadius: 999, overflow: "hidden" }}>
-            <div style={{ height: "100%", width: `${bedPct}%`, background: bedPct >= 80 ? "#EF4444" : "#143D30", borderRadius: 999 }} />
-          </div>
-        </div>
+        </motion.div>
 
         {/* Weekly Revenue */}
-        <div style={{ background: "white", borderRadius: 20, padding: "22px 22px 14px", border: "1px solid rgba(20,61,48,0.06)", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 4 }}>
-            <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: "#94A3B8", fontFamily: "'Syne',sans-serif" }}>REVENUE</p>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
+          style={{ background: "white", borderRadius: 24, padding: "26px", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", display: "flex", flexDirection: "column" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+            <p style={{ fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "#94A3B8", fontFamily: "'Syne',sans-serif" }}>REVENUE</p>
           </div>
-          <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 28, color: "#0F172A", letterSpacing: "-0.04em", marginBottom: 6 }}>{fmt(revenueTotal)}</p>
-          <MiniChart data={chartData} color="#143D30" height={70} labels={revenueRange === "Weekly" ? WEEK_LABELS : []} />
-        </div>
+          <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 32, color: "#143D30", letterSpacing: "-0.04em", marginBottom: "auto" }}>{fmt(revenueTotal)}</p>
+          <div style={{ marginTop: 16 }}>
+            <MiniChart data={chartData} color="#143D30" height={60} labels={revenueRange === "Weekly" ? WEEK_LABELS : []} />
+          </div>
+        </motion.div>
 
         {/* Total Appointments */}
-        <div style={{ background: "white", borderRadius: 20, padding: "22px 22px 18px", border: "1px solid rgba(20,61,48,0.06)", boxShadow: "0 2px 12px rgba(0,0,0,0.04)" }}>
-          <div style={{ width: 42, height: 42, borderRadius: 13, background: "#EAF2EE", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 14 }}>
-            <Calendar size={19} color="#143D30" />
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+          style={{ background: "white", borderRadius: 24, padding: "26px", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 20px rgba(0,0,0,0.03)", display: "flex", flexDirection: "column" }}>
+          <div style={{ width: 44, height: 44, borderRadius: 14, background: "#F1F7F4", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: "auto" }}>
+            <Calendar size={20} color="#143D30" />
           </div>
-          <p style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: "#94A3B8", fontFamily: "'Syne',sans-serif", marginBottom: 8 }}>TOTAL APPOINTMENTS</p>
-          <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 32, color: "#0F172A", letterSpacing: "-0.05em", lineHeight: 1, marginBottom: 10 }}>{hospAppts.length.toLocaleString()}</p>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "#EAF2EE", color: "#143D30", padding: "3px 8px", borderRadius: 999, fontSize: 10, fontWeight: 700 }}>
-            {todayAppts} New Today
+          <div style={{ marginTop: 32 }}>
+            <p style={{ fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "#94A3B8", fontFamily: "'Syne',sans-serif", marginBottom: 10 }}>TOTAL APPOINTMENTS</p>
+            <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 40, color: "#143D30", letterSpacing: "-0.05em", lineHeight: 1, marginBottom: 16 }}>{hospAppts.length.toLocaleString()}</p>
+            <div style={{ display: "inline-flex", alignItems: "center", background: "#ECFDF5", color: "#059669", padding: "6px 12px", borderRadius: 999, fontSize: 10.5, fontWeight: 800, fontFamily: "'Syne',sans-serif", letterSpacing: "0.02em" }}>
+              {todayAppts} New Today
+            </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* On-Call Team Card */}
-        <div style={{ background: "#143D30", borderRadius: 20, padding: "20px 18px", boxShadow: "0 8px 32px rgba(20,61,48,0.22)", color: "white" }}>
-          <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 14, color: "white", marginBottom: 12, letterSpacing: "0.05em" }}>ON-CALL TEAM</p>
-          {onCall.length === 0 ? (
-            <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>No doctors online</p>
-          ) : (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {onCall.slice(0, 2).map((doc) => (
-                <div key={doc.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <Av name={doc.name} size={30} bg="rgba(255,255,255,0.15)" />
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}
+          style={{ background: "#143D30", borderRadius: 24, padding: "26px", boxShadow: "0 12px 32px rgba(20,61,48,0.25)", color: "white", display: "flex", flexDirection: "column" }}>
+          <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 10.5, letterSpacing: "0.15em", color: "rgba(255,255,255,0.7)", marginBottom: 16 }}>ON-CALL TEAM</p>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            {onCall.length === 0 ? (
+              <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>No doctors online</p>
+            ) : (
+              <div style={{ width: "100%", background: "rgba(255,255,255,0.12)", borderRadius: 16, padding: "16px", border: "1px solid rgba(255,255,255,0.08)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <Av name={onCall[0].name} size={38} bg="rgba(255,255,255,0.2)" />
                   <div style={{ minWidth: 0 }}>
-                    <p style={{ fontWeight: 700, fontSize: 11, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Dr. {doc.name}</p>
-                    <p style={{ fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{doc.department}</p>
+                    <p style={{ fontWeight: 800, fontSize: 13, color: "white", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", fontFamily: "'Syne',sans-serif" }}>Dr. {onCall[0].name}</p>
+                    <p style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", fontWeight: 500, marginTop: 2 }}>{onCall[0].department}</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        </motion.div>
       </div>
 
       {/* ── BOTTOM ROW ───────────────────────────────────────────────────────── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-
-        {/* Recent Activity - Now Full Width */}
-        <div style={{ background: "white", borderRadius: 20, border: "1px solid rgba(20,61,48,0.06)", boxShadow: "0 2px 12px rgba(0,0,0,0.04)", overflow: "hidden" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 22px 14px", borderBottom: "1px solid #F1F7F3" }}>
-            <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 16, color: "#0F172A" }}>Recent Activity</span>
-            <button onClick={() => onNavigate?.("historical")} style={{ fontSize: 12, fontWeight: 700, color: "#143D30", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 3, fontFamily: "'Syne',sans-serif" }}>
-              View All <ChevronRight size={13} />
-            </button>
-          </div>
-          {/* table head */}
-          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 0.5fr", gap: 8, padding: "9px 22px", background: "#FAFCFB", borderBottom: "1px solid #F1F7F3" }}>
-            {["PATIENT", "TYPE", "DATE", "STATUS", "ACTION"].map(h => (
-              <span key={h} style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.16em", color: "#94A3B8", fontFamily: "'Syne',sans-serif" }}>{h}</span>
-            ))}
-          </div>
-          {recent.length === 0 ? (
-            <div style={{ padding: "48px 0", textAlign: "center", color: "#94A3B8", fontSize: 13, fontWeight: 600 }}>No appointments yet</div>
-          ) : recent.map((appt, i) => {
-            const doc = doctors.find(d => d.id === appt.doctor_id);
-            const typeMap = { booked: "Check-up", pending: "Consultation", rejected: "Cancelled" };
-            const type = typeMap[appt.status] || doc?.department || "Appointment";
-            const dateStr = appt.date ? new Date(appt.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
-            return (
-              <div key={appt.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 0.5fr", gap: 8, padding: "13px 22px", alignItems: "center", borderBottom: i < recent.length - 1 ? "1px solid #F8FBFA" : "none", cursor: "pointer", transition: "background 0.15s" }}
-                onMouseEnter={e => e.currentTarget.style.background = "#F6FAF8"}
-                onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-                <div style={{ display: "flex", alignItems: "center", gap: 11 }}>
-                  <Av name={appt.name} size={36} bg={BG_COLORS[i % BG_COLORS.length]} />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: 13.5, color: "#0F172A", lineHeight: 1.2 }}>{appt.name || "—"}</div>
-                    <div style={{ fontSize: 11, color: "#94A3B8", fontWeight: 500, marginTop: 1 }}>{doc?.department || "Patient"}</div>
-                  </div>
-                </div>
-                <span style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>{type}</span>
-                <span style={{ fontSize: 13, color: "#475569", fontWeight: 600 }}>{dateStr}</span>
-                <StatusBadge status={appt.status} />
-                <button style={{ background: "none", border: "none", cursor: "pointer", color: "#B0BEC5", display: "flex", alignItems: "center" }}>
-                  <MoreHorizontal size={16} />
-                </button>
-              </div>
-            );
-          })}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}
+        style={{ background: "white", borderRadius: 24, border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 20px rgba(0,0,0,0.02)", overflow: "hidden" }}>
+        
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "24px 28px", borderBottom: "1px solid rgba(0,0,0,0.03)" }}>
+          <span style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 17, color: "#114734" }}>Recent Activity</span>
+          <button onClick={() => onNavigate?.("historical")} style={{ fontSize: 12, fontWeight: 700, color: "#0F172A", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 4, fontFamily: "'Plus Jakarta Sans',sans-serif" }}>
+            View All <ChevronRight size={14} />
+          </button>
         </div>
-      </div>
 
+        {/* table head */}
+        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 0.5fr", gap: 8, padding: "12px 28px", background: "#FAFAFA", borderBottom: "1px solid rgba(0,0,0,0.03)" }}>
+          {["PATIENT", "TYPE", "DATE", "STATUS", "ACTION"].map(h => (
+            <span key={h} style={{ fontSize: 9.5, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: "#94A3B8", fontFamily: "'Syne',sans-serif" }}>{h}</span>
+          ))}
+        </div>
 
+        {/* table body */}
+        {recent.length === 0 ? (
+          <div style={{ padding: "64px 0", textAlign: "center", color: "#94A3B8", fontSize: 14, fontWeight: 600 }}>No appointments yet</div>
+        ) : recent.map((appt, i) => {
+          const doc = doctors.find(d => d.id === appt.doctor_id);
+          const typeMap = { booked: "Check-up", pending: "Consultation", rejected: "Cancelled" };
+          const type = typeMap[appt.status] || doc?.department || "Appointment";
+          const dateStr = appt.date ? new Date(appt.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—";
+          return (
+            <div key={appt.id} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr 1fr 0.5fr", gap: 8, padding: "18px 28px", alignItems: "center", borderBottom: i < recent.length - 1 ? "1px solid rgba(0,0,0,0.03)" : "none", cursor: "pointer", transition: "background 0.2s" }}
+              onMouseEnter={e => e.currentTarget.style.background = "#FAFAFA"}
+              onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <Av name={appt.name} size={38} bg={BG_COLORS[i % BG_COLORS.length]} />
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 13.5, color: "#0F172A", lineHeight: 1.2 }}>{appt.name || "—"} {appt.patient_uid && <span style={{ fontSize: 10, color: "#10B981" }}>#{appt.patient_uid}</span>}</div>
+                  <div style={{ fontSize: 11, color: "#64748B", fontWeight: 500, marginTop: 2 }}>{doc?.department || "Pathology"}</div>
+                </div>
+              </div>
+              <span style={{ fontSize: 13, color: "#334155", fontWeight: 700 }}>{type}</span>
+              <span style={{ fontSize: 13, color: "#64748B", fontWeight: 500 }}>{dateStr}</span>
+              <div>
+                <StatusBadge status={appt.status} />
+              </div>
+              <button style={{ background: "none", border: "none", cursor: "pointer", color: "#CBD5E1", display: "flex", alignItems: "center" }}>
+                <MoreHorizontal size={18} />
+              </button>
+            </div>
+          );
+        })}
+      </motion.div>
     </>
   );
 }

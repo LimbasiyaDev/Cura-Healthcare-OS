@@ -51,31 +51,47 @@ console.log = safeLogger.log;
 console.warn = safeLogger.warn;
 console.error = safeLogger.error;
 
-/* ─── NODEMAILER (lazy transporter — reads env vars at send time) ───────────── */
+/* ─── NODEMAILER (pooled transporter — created once and reused) ──────────── */
+let _mailerPool = null;
+
 function getMailTransporter() {
-  return nodemailer.createTransport({
-    host:   process.env.SMTP_HOST || "smtp.gmail.com",
-    port:   parseInt(process.env.SMTP_PORT || "587"),
-    secure: process.env.SMTP_SECURE === "true",
+  if (_mailerPool) return _mailerPool;
+  _mailerPool = nodemailer.createTransport({
+    host:           process.env.SMTP_HOST || "smtp.gmail.com",
+    port:           parseInt(process.env.SMTP_PORT || "587"),
+    secure:         process.env.SMTP_SECURE === "true",
     auth: {
       user: process.env.SMTP_USER,
       pass: process.env.SMTP_PASS,
     },
+    family:         4,     // Force IPv4 to resolve ENETUNREACH issues
+    pool:           true,  // Reuse connections — avoids cold-start drops
+    maxConnections: 3,
+    socketTimeout:  10000, // 10s timeout to fail fast instead of hanging silently
   });
+  return _mailerPool;
 }
 
 /** In-memory store for pending email OTPs: email -> { otp, expiresAt, session } */
 const emailOtpStore = new Map();
 
-/** Generate a cryptographically adequate 6-digit OTP */
+/** Generate a cryptographically secure 6-digit OTP */
 function generateOtp() {
   return String(crypto.randomInt(100000, 1000000));
 }
 
 /** Send OTP email via Nodemailer */
 async function sendOtpEmail(toEmail, otp, hospitalName = "Cura Health") {
-  const transporter = getMailTransporter();
+  let transporter = getMailTransporter();
   safeLogger.log(`[Mailer] Sending OTP to ${toEmail} via ${process.env.SMTP_USER}`);
+  try {
+    await transporter.verify();
+  } catch (verifyErr) {
+    // Pooled connection is stale — reset and reconnect
+    safeLogger.warn(`[Mailer] SMTP verify failed, resetting pool: ${verifyErr.message}`);
+    _mailerPool = null;
+    transporter = getMailTransporter();
+  }
   await transporter.sendMail({
     from: `"${hospitalName}" <${process.env.SMTP_USER}>`,
     to:   toEmail,
@@ -83,7 +99,7 @@ async function sendOtpEmail(toEmail, otp, hospitalName = "Cura Health") {
     html: `
       <div style="font-family:'Segoe UI',sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:12px">
         <div style="background:#0D3327;border-radius:10px;padding:24px;text-align:center;margin-bottom:24px">
-          <h2 style="color:#fff;margin:0;font-size:22px">🏥 ${hospitalName}</h2>
+          <h2 style="color:#fff;margin:0;font-size:22px">&#x1F3E5; ${hospitalName}</h2>
         </div>
         <h3 style="color:#0D3327;margin-bottom:8px">Your One-Time Password</h3>
         <p style="color:#555;margin-bottom:20px">Use this OTP to verify your account. It expires in <strong>10 minutes</strong>.</p>
@@ -94,52 +110,22 @@ async function sendOtpEmail(toEmail, otp, hospitalName = "Cura Health") {
   });
 }
 
-/* ─── TRANSPORT ──────────────────────────────────────────────────────────────
-   USE_WHATSAPP_WEB=true  → whatsapp-web.js (scan QR, free)
-   USE_WHATSAPP_WEB=false → Meta Cloud API  (requires Meta setup)               */
-const USE_WHATSAPP_WEB = process.env.USE_WHATSAPP_WEB === "true";
-
-let waClient = null;
-
-if (USE_WHATSAPP_WEB) {
-  const { Client, LocalAuth } = require("whatsapp-web.js");
-  const qrcode = require("qrcode-terminal");
-  waClient = new Client({ authStrategy: new LocalAuth() });
-  waClient.on("qr",    (qr) => { console.log("\n📱 Scan QR:\n"); qrcode.generate(qr, { small: true }); });
-  waClient.on("ready", ()   => console.log("✅ WhatsApp Web bot is live!"));
-  waClient.on("message", async (msg) => {
-    if (msg.isGroupMsg) return;
-    const hospital = await getDefaultHospital();
-    await handleFlow(
-      normalizePhone(msg.from),
-      {
-        type: msg.type,
-        ...(msg.type === "ptt" || msg.type === "audio"
-          ? { audio: { id: msg.id._serialized }, _raw: msg }
-          : { text: { body: msg.body?.trim() || "" } }),
-        _raw: msg,
-      },
-      hospital
-    ).catch((err) => console.error("Flow error:", err.message));
-  });
-  waClient.initialize();
-}
 
 /* ─── CONFIG ─────────────────────────────────────────────────────────────── */
 const CONFIG = {
-  TOKEN:           process.env.WHATSAPP_TOKEN,
-  PHONE_NUMBER_ID: process.env.PHONE_NUMBER_ID,
-  VERIFY_TOKEN:    process.env.VERIFY_TOKEN || "mytoken123",
   PORT:            process.env.PORT || 4000,
   TYPING_DELAY_MS: 900,
   MAX_RETRY:       3,
   SESSION_TTL_MS:  30 * 60 * 1000,
-  DEDUP_WINDOW_MS: 4000,
 };
 
 /* ─── SUPABASE ───────────────────────────────────────────────────────────── */
 const supabase      = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+
+/* ─── WHATSAPP WEB CLIENT (optional) ────────────────────────────────────── */
+const USE_WHATSAPP_WEB = false; // Set to true if using whatsapp-web.js instead of Cloud API
+const waClient = null;          // Will hold whatsapp-web.js Client instance if enabled
 
 /* ─── AI CLIENTS ─────────────────────────────────────────────────────────── */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -308,15 +294,15 @@ async function sendTList(phone, text, sections, buttonLabel, hospital) {
 }
 
 /* ─── HOSPITAL CACHE ─────────────────────────────────────────────────────── */
-let _hospitalByPhoneId = {};
+let _hospitalsCache = {};
 let _defaultHospital   = null;
 
 async function loadHospitalConfigs() {
   const { data, error } = await supabase.from("hospitals").select("*");
   if (error) { console.error("Hospital load error:", error.message); return; }
-  _hospitalByPhoneId = {};
+  _hospitalsCache = {};
   data.forEach((h) => {
-    if (h.whatsapp_phone_number_id) _hospitalByPhoneId[h.whatsapp_phone_number_id] = h;
+    _hospitalsCache[h.id] = h;
   });
   if (data.length > 0) _defaultHospital = data[0];
   console.log(`✅ Loaded ${data.length} hospital(s)`);
@@ -330,9 +316,9 @@ async function getDefaultHospital() {
 
 async function getHospitalById(id) {
   if (!id) return getDefaultHospital();
-  const hit = Object.values(_hospitalByPhoneId).find((h) => h.id === id);
-  if (hit) return hit;
+  if (_hospitalsCache[id]) return _hospitalsCache[id];
   const { data } = await supabase.from("hospitals").select("*").eq("id", id).single();
+  if (data) _hospitalsCache[data.id] = data;
   return data;
 }
 
@@ -355,20 +341,6 @@ function getSession(phone) {
   const fresh = { step: "IDLE", data: {}, lastActive: Date.now(), msgCount: 0, lang: null };
   sessions.set(phone, fresh);
   return fresh;
-}
-
-/* ─── DEDUP STORE ────────────────────────────────────────────────────────── */
-const recentMsgIds = new Map();
-function isDuplicate(msgId) {
-  if (!msgId) return false;
-  const ts = recentMsgIds.get(msgId);
-  if (ts && Date.now() - ts < CONFIG.DEDUP_WINDOW_MS) return true;
-  recentMsgIds.set(msgId, Date.now());
-  if (recentMsgIds.size > 200) {
-    const cutoff = Date.now() - CONFIG.DEDUP_WINDOW_MS * 2;
-    for (const [k, v] of recentMsgIds) { if (v < cutoff) recentMsgIds.delete(k); }
-  }
-  return false;
 }
 
 /* ─── HELPERS ────────────────────────────────────────────────────────────── */
@@ -636,22 +608,14 @@ async function findBestDoctor(triageResult, hospital) {
 
 /* ─── AI: EMERGENCY NOTIFY ───────────────────────────────────────────────── */
 async function notifyEmergencyDoctors(phone, patientName, triageResult, hospital) {
-  const { data: doctors, error } = await supabase
-    .from("doctors").select("phone, name").eq("hospital_id", hospital.id).eq("is_available", true);
-  if (error || !doctors?.length) { console.warn("No doctors to notify:", error?.message); return; }
-  const emergencyMsg =
-    `🚨 *EMERGENCY ALERT — ${hospital.name}*\n\n` +
-    `👤 *Patient:* ${patientName || "Unknown"}\n` +
-    `📞 *Contact:* +${phone}\n` +
-    `⚠️ *Reason:* ${triageResult.emergencyReason || "Emergency reported"}\n` +
-    `🔴 *Severity:* ${(triageResult.severity || "high").toUpperCase()}\n\n` +
-    `📋 *Summary:* ${triageResult.patientSummary}\n\n` +
-    `⚡ Please respond IMMEDIATELY.`;
-  for (const doc of doctors) {
-    if (!doc.phone) continue;
-    try { await sendMessage(normalizePhone(doc.phone), emergencyMsg, hospital); await pause(200); }
-    catch (e) { console.error(`Failed to notify Dr. ${doc.name}:`, e.message); }
-  }
+  console.log(
+    `🚨 [EMERGENCY ALERT — ${hospital.name}]\n` +
+    `👤 Patient: ${patientName || "Unknown"} (+${phone})\n` +
+    `⚠️ Reason: ${triageResult.emergencyReason || "Emergency reported"}\n` +
+    `🔴 Severity: ${(triageResult.severity || "high").toUpperCase()}\n` +
+    `📋 Summary: ${triageResult.patientSummary}\n` +
+    `⚡ Action: Staff should contact patient immediately.`
+  );
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -923,11 +887,16 @@ app.post("/auth/verify-otp", async (req, res) => {
       const finalName = name || storedName;
 
       // Upsert into web_patients
+      let patientUid = null;
       if (userId) {
+        const { data: existing } = await supabase.from("web_patients").select("uid").eq("auth_user_id", userId).single();
+        patientUid = existing?.uid || Math.floor(10000 + Math.random() * 90000).toString();
+        
         const patientData = {
           auth_user_id: userId,
           email,
           last_seen: new Date().toISOString(),
+          uid: patientUid,
         };
         if (finalName) patientData.name = finalName;
         await supabase.from("web_patients").upsert(patientData, { onConflict: "auth_user_id" });
@@ -941,6 +910,7 @@ app.post("/auth/verify-otp", async (req, res) => {
         userId,
         phone:        null,
         email,
+        uid:          patientUid,
       });
     }
 
@@ -958,14 +928,23 @@ app.post("/auth/verify-otp", async (req, res) => {
       const userPhone    = user?.phone || digits;
       const finalName    = name || user?.user_metadata?.name;
 
+      let patientUid = null;
       if (user?.id) {
-        const patientData = { auth_user_id: user.id, phone: digits, last_seen: new Date().toISOString() };
+        const { data: existing } = await supabase.from("web_patients").select("uid").eq("auth_user_id", user.id).single();
+        patientUid = existing?.uid || Math.floor(10000 + Math.random() * 90000).toString();
+        
+        const patientData = { 
+          auth_user_id: user.id, 
+          phone: digits, 
+          last_seen: new Date().toISOString(),
+          uid: patientUid
+        };
         if (finalName) patientData.name = finalName;
         await supabase.from("web_patients").upsert(patientData, { onConflict: "auth_user_id" });
       }
 
       safeLogger.log(`[Auth/Verify] ✅ Phone OTP verified for ${e164}`);
-      return res.json({ ok: true, accessToken, refreshToken, userId: user?.id, phone: digits, email: null });
+      return res.json({ ok: true, accessToken, refreshToken, userId: user?.id, phone: digits, email: null, uid: patientUid });
     }
 
     return res.status(400).json({ ok: false, error: "Provide phone or email" });
@@ -1072,7 +1051,7 @@ app.get("/patient/profile", async (req, res) => {
 
     const { data: profile, error: dbErr } = await supabase
       .from("web_patients")
-      .select("name, email, phone, height, weight, blood_group, bmi, emergency_contact")
+      .select("name, email, phone, height, weight, blood_group, bmi, emergency_contact, uid")
       .eq("auth_user_id", user.id)
       .single();
 
@@ -1175,6 +1154,24 @@ app.get("/patient/history", async (req, res) => {
       return res.status(400).json({ ok: false, error: "phone query param is required" });
     }
 
+    // SECURITY CHECK: Prevent IDOR
+    // Ensure the requested phone/email matches the authenticated user's phone/email
+    const userPhone = user.phone ? user.phone.replace(/\D/g, "") : null;
+    const userEmail = user.email;
+    const isEmailReq = phone.includes("@");
+    const reqPhoneDigits = isEmailReq ? null : phone.replace(/\D/g, "");
+
+    let isAuthorized = false;
+    if (isEmailReq && userEmail && phone.toLowerCase() === userEmail.toLowerCase()) {
+      isAuthorized = true;
+    } else if (!isEmailReq && userPhone && (reqPhoneDigits === userPhone || reqPhoneDigits.includes(userPhone) || userPhone.includes(reqPhoneDigits))) {
+      isAuthorized = true;
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ ok: false, error: "Forbidden: You are not authorized to view this patient's history" });
+    }
+
     // Normalize phone/email for DB lookup (strip +91 prefix for phones, keep email as-is)
     const isEmail = phone.includes("@");
     const phoneDigits = isEmail ? phone : phone.replace(/\D/g, "");
@@ -1203,7 +1200,9 @@ app.get("/patient/history", async (req, res) => {
         doctors (
           id,
           name,
-          department
+          department,
+          working_hours,
+          slot_duration
         ),
         hospitals (
           id,
@@ -1227,18 +1226,16 @@ app.get("/patient/history", async (req, res) => {
       .select(`
         id,
         created_at,
-        pdf_url,
+        date,
+        diagnosis,
+        status,
         notes,
         medicines,
-        appointment_id,
+        tests,
         doctors (
           id,
           name,
           department
-        ),
-        hospitals (
-          id,
-          name
         )
       `)
       .in("patient_phone", phoneVariants)
@@ -1248,6 +1245,39 @@ app.get("/patient/history", async (req, res) => {
     // Don't fail if prescriptions table doesn't exist yet
     if (presError) {
       console.warn("[History] Prescriptions fetch warning:", presError.message);
+    }
+
+    // Fetch invoices linked to this patient's phone
+    const { data: invoices, error: invError } = await supabaseAdmin
+      .from("invoices")
+      .select(`
+        id,
+        invoice_num,
+        created_at,
+        visit_date,
+        due_date,
+        facility,
+        items,
+        subtotal,
+        tax,
+        insurance_adj,
+        discount,
+        total,
+        payment_status,
+        insurance_provider,
+        notes,
+        doctors (
+          id,
+          name,
+          department
+        )
+      `)
+      .in("patient_phone", phoneVariants)
+      .order("created_at", { ascending: false })
+      .limit(20);
+
+    if (invError) {
+      console.warn("[History] Invoices fetch warning:", invError.message);
     }
 
     // Count total appointments for pagination
@@ -1262,6 +1292,7 @@ app.get("/patient/history", async (req, res) => {
       ok:            true,
       appointments:  appointments || [],
       prescriptions: prescriptions || [],
+      invoices:      invoices || [],
       total:         totalCount || 0,
       limit,
       offset,
@@ -1269,6 +1300,88 @@ app.get("/patient/history", async (req, res) => {
 
   } catch (err) {
     console.error("[History] Unexpected error:", err.message);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// Fetch patient history for doctors (bypasses RLS by verifying access request)
+app.get("/doctor/patient-history", async (req, res) => {
+  // SECURITY CHECK: Verify the Bearer token for the doctor
+  const authHeader = req.headers.authorization || "";
+  const token      = authHeader.replace("Bearer ", "").trim();
+
+  if (!token) {
+    return res.status(401).json({ ok: false, error: "Authorization token required" });
+  }
+
+  try {
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
+    if (authError || !user) {
+      return res.status(401).json({ ok: false, error: "Invalid or expired token" });
+    }
+
+    const { phone, doctor_id } = req.query;
+    if (!phone || !doctor_id) {
+      return res.status(400).json({ ok: false, error: "Missing phone or doctor_id" });
+    }
+
+    // Prevent IDOR: Ensure the authenticated user matches the doctor_id
+    if (user.id !== doctor_id) {
+      return res.status(403).json({ ok: false, error: "Forbidden: You are not authorized as this doctor" });
+    }
+
+    let basePhone = phone;
+
+    // Build all possible variants for this identifier
+    let phoneVariants = [phone];
+
+    if (phone.includes("@")) {
+      // Email-based identifier: add both with and without "web_" prefix
+      const emailOnly = phone.replace(/^web_/, "");
+      const emailWithPrefix = `web_${emailOnly}`;
+      phoneVariants = [emailOnly, emailWithPrefix];
+    } else {
+      // Phone number: strip country code and build variants
+      if (basePhone.startsWith("91") && basePhone.length === 12) {
+        basePhone = basePhone.substring(2);
+      }
+      const phoneDigits = basePhone.replace(/\D/g, "");
+      phoneVariants = [phoneDigits, `91${phoneDigits}`, `+91${phoneDigits}`, phone];
+    }
+
+    console.log(`[Doctor History] Looking up patient with variants:`, phoneVariants);
+
+    // 1. Verify doctor has approved access request (check all phone variants)
+    const { data: accessData } = await supabaseAdmin
+      .from("prescriptions")
+      .select("id")
+      .eq("diagnosis", "MEDICAL_ACCESS_REQUEST")
+      .in("patient_phone", phoneVariants)
+      .eq("doctor_id", doctor_id)
+      .eq("status", "completed")
+      .limit(1);
+
+    if (!accessData || accessData.length === 0) {
+      return res.status(403).json({ ok: false, error: "Access denied or not approved by patient" });
+    }
+
+    // 2. Fetch full history using admin client (check all phone variants)
+    const { data: history, error: fetchError } = await supabaseAdmin
+      .from("prescriptions")
+      .select("id, diagnosis, medicines, tests, notes, date, doctors(name, department)")
+      .in("patient_phone", phoneVariants)
+      .neq("diagnosis", "MEDICAL_ACCESS_REQUEST")
+      .neq("diagnosis", "MEDICAL_ACCESS_REQUEST_PENDING")
+      .order("created_at", { ascending: false });
+
+    console.log(`[Doctor History] Found ${history?.length ?? 0} records for patient`);
+
+    if (fetchError) throw fetchError;
+
+    return res.json({ ok: true, history: history || [] });
+  } catch (err) {
+    console.error("[Doctor History Error]", err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
@@ -1368,28 +1481,6 @@ app.post("/api/web-chat", async (req, res) => {
     console.error("Web chat error:", err.message);
     res.status(500).json({ error: err.message });
   }
-});
-
-/* ─── WEBHOOK (WhatsApp Cloud API) ──────────────────────────────────────── */
-app.get("/webhook", (req, res) => {
-  if (req.query["hub.verify_token"] === CONFIG.VERIFY_TOKEN)
-    return res.send(req.query["hub.challenge"]);
-  res.sendStatus(403);
-});
-
-app.post("/webhook", async (req, res) => {
-  res.status(200).send("EVENT_RECEIVED");
-  if (USE_WHATSAPP_WEB) return;
-  const value = req.body?.entry?.[0]?.changes?.[0]?.value;
-  if (!value?.messages) return;
-  const msg   = value.messages[0];
-  const msgId = msg.id;
-  if (isDuplicate(msgId)) { console.log("⚠️  Duplicate msg ignored:", msgId); return; }
-  const phone    = normalizePhone(msg.from);
-  const phoneId  = value?.metadata?.phone_number_id;
-  const hospital = _hospitalByPhoneId[phoneId] || (await getDefaultHospital());
-  if (!hospital) { console.error("No hospital for phoneId:", phoneId); return; }
-  await handleFlow(phone, msg, hospital).catch((err) => console.error("Flow error:", err.message));
 });
 
 /* ─── EXISTING ADMIN / DOCTOR ENDPOINTS (unchanged) ─────────────────────── */
@@ -1734,8 +1825,10 @@ app.post("/send-invoice", async (req, res) => {
   if (!phone || !items?.length)
     return res.status(400).json({ error: "phone and items are required" });
   const hospital = await getHospitalById(hospitalId);
-  const rawPhone = phone.replace(/\D/g, "");
-  const p        = rawPhone.length === 10 ? "91" + rawPhone : rawPhone;
+  const isEmail = phone.includes("@");
+  const isWeb   = phone.startsWith("web_");
+  const rawPhone = (isEmail || isWeb) ? phone : phone.replace(/\D/g, "");
+  const p        = (isEmail || isWeb) ? phone : (rawPhone.length === 10 ? "91" + rawPhone : rawPhone);
   const fmt = (n) => "₹" + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   invoiceStore.set(invoiceNum, {
     invoiceNum, patientName, patientId, doctorName, facility,
@@ -1800,6 +1893,18 @@ app.post("/invoice-paid", async (req, res) => {
   inv.status  = "paid";
   inv.paid_at = new Date().toISOString();
   invoiceStore.set(invoiceNum, inv);
+
+  // Update in Supabase invoices table
+  try {
+    const { error: dbErr } = await supabaseAdmin
+      .from("invoices")
+      .update({ payment_status: "Paid", updated_at: new Date().toISOString() })
+      .eq("invoice_num", invoiceNum);
+    if (dbErr) console.error("[Invoice Paid] DB Update Error:", dbErr.message);
+  } catch (dbEx) {
+    console.error("[Invoice Paid] DB Update Exception:", dbEx);
+  }
+
   const fmt     = (n) => "₹" + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
   const hospital = await getHospitalById(hospitalId || inv.hospitalId);
   try {
@@ -1827,6 +1932,15 @@ app.post("/invoice-paid", async (req, res) => {
 });
 
 async function sendCTAButton(to, bodyText, buttonLabel, url, hospital) {
+  if (!to || to.toString().startsWith("web_") || to.toString().includes("@")) {
+    console.log(`[sendCTAButton] [Skipped - Web/Email User] to: "${to}"`);
+    if (to && (to.toString().startsWith("web_") || to.toString().includes("@"))) {
+      const session = getSession(to);
+      if (!session.pendingReplies) session.pendingReplies = [];
+      session.pendingReplies.push({ type: "text", body: `${bodyText}\n\n🔗 ${buttonLabel}: ${url}` });
+    }
+    return;
+  }
   if (USE_WHATSAPP_WEB && waClient) {
     const chatId = to.includes("@") ? to : `${to}@c.us`;
     return waClient.sendMessage(chatId, `${bodyText}\n\n🔗 ${buttonLabel}:\n${url}`);
@@ -2888,25 +3002,18 @@ async function apiPost(url, payload, token, retries = CONFIG.MAX_RETRY) {
 
 async function sendMessage(to, body, hospital) {
   console.log(`[sendMessage] to: "${to}", body length: ${body?.length}`);
-  if (to && to.toString().startsWith("web_")) {
+  if (to && (to.toString().startsWith("web_") || to.toString().includes("@"))) {
     const session = getSession(to);
     if (!session.pendingReplies) session.pendingReplies = [];
     session.pendingReplies.push({ type: "text", body });
     console.log(`[sendMessage] pushed web reply, pendingReplies length: ${session.pendingReplies.length}`);
     return;
   }
-  if (USE_WHATSAPP_WEB && waClient) {
-    const chatId = to.includes("@") ? to : `${to}@c.us`;
-    return waClient.sendMessage(chatId, body);
-  }
-  const token   = hospital?.whatsapp_token || CONFIG.TOKEN;
-  const phoneId = hospital?.whatsapp_phone_number_id || CONFIG.PHONE_NUMBER_ID;
-  return apiPost(`https://graph.facebook.com/v19.0/${phoneId}/messages`,
-    { messaging_product: "whatsapp", to, text: { body } }, token);
+  console.log(`[sendMessage] [Skipped - WhatsApp Disabled] to: "${to}", body: "${body}"`);
 }
 
 async function sendButtons(to, text, buttons, hospital) {
-  if (to && to.toString().startsWith("web_")) {
+  if (to && (to.toString().startsWith("web_") || to.toString().includes("@"))) {
     const session = getSession(to);
     session._buttonMap = {};
     buttons.forEach((b) => {
@@ -2917,34 +3024,11 @@ async function sendButtons(to, text, buttons, hospital) {
     session.pendingReplies.push({ type: "buttons", body: text, buttons });
     return;
   }
-  if (USE_WHATSAPP_WEB && waClient) {
-    const chatId  = to.includes("@") ? to : `${to}@c.us`;
-    const session = getSession(to);
-    session._buttonMap = {};
-    const opts = buttons.map((b, i) => {
-      session._buttonMap[String(i + 1)] = b.id;
-      return `${i + 1}. ${b.title}`;
-    }).join("\n");
-    return waClient.sendMessage(chatId, `${text}\n\n${opts}\n\n_Reply with a number_`);
-  }
-  const token   = hospital?.whatsapp_token || CONFIG.TOKEN;
-  const phoneId = hospital?.whatsapp_phone_number_id || CONFIG.PHONE_NUMBER_ID;
-  return apiPost(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
-    messaging_product: "whatsapp",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "button",
-      body: { text },
-      action: {
-        buttons: buttons.slice(0, 3).map((b) => ({ type: "reply", reply: { id: b.id, title: b.title } })),
-      },
-    },
-  }, token);
+  console.log(`[sendButtons] [Skipped - WhatsApp Disabled] to: "${to}", text: "${text}"`);
 }
 
 async function sendList(to, text, sections, buttonLabel, hospital) {
-  if (to && to.toString().startsWith("web_")) {
+  if (to && (to.toString().startsWith("web_") || to.toString().includes("@"))) {
     const session = getSession(to);
     session._buttonMap = {};
     sections.forEach((sec) => {
@@ -2957,45 +3041,14 @@ async function sendList(to, text, sections, buttonLabel, hospital) {
     session.pendingReplies.push({ type: "list", body: text, sections, buttonLabel });
     return;
   }
-  if (USE_WHATSAPP_WEB && waClient) {
-    const chatId  = to.includes("@") ? to : `${to}@c.us`;
-    const session = getSession(to);
-    session._buttonMap = {};
-    let counter = 1;
-    let msgText = `${text}\n\n`;
-    sections.forEach((sec) => {
-      sec.rows.forEach((row) => {
-        msgText += `${counter}. ${row.title}\n`;
-        session._buttonMap[String(counter++)] = row.id;
-      });
-    });
-    return waClient.sendMessage(chatId, msgText + "\n_Reply with a number_");
-  }
-  const token   = hospital?.whatsapp_token || CONFIG.TOKEN;
-  const phoneId = hospital?.whatsapp_phone_number_id || CONFIG.PHONE_NUMBER_ID;
-  return apiPost(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
-    messaging_product: "whatsapp",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "list",
-      body: { text },
-      action: {
-        button: buttonLabel,
-        sections: sections.map((s) => ({
-          title: s.title,
-          rows:  s.rows.map((r) => ({ id: r.id, title: r.title })),
-        })),
-      },
-    },
-  }, token);
+  console.log(`[sendList] [Skipped - WhatsApp Disabled] to: "${to}", text: "${text}"`);
 }
 
 /* ─── START SERVER ───────────────────────────────────────────────────────── */
 app.listen(CONFIG.PORT, () =>
   console.log(
-    `🚀 Cura Bot on port ${CONFIG.PORT} | ` +
-    `Mode: ${USE_WHATSAPP_WEB ? "WhatsApp Web" : "Meta Cloud API"} | ` +
-    `New endpoints: /auth/send-otp · /auth/verify-otp · /patient/history · /auth/refresh · /auth/logout`
+    `🚀 Cura Bot is live on port ${CONFIG.PORT} | ` +
+    `Web Chat Integration | ` +
+    `Endpoints: /auth/send-otp · /auth/verify-otp · /patient/history · /auth/refresh · /auth/logout`
   )
 );

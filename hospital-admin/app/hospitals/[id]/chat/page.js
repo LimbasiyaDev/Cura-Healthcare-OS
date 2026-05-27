@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft, Send, MessageSquare, AlertTriangle, LayoutDashboard, Calendar,
   FileText, HelpCircle, LogOut, MoreVertical, Paperclip, User, Save, Activity,
-  Droplet, ShieldPlus, TrendingUp, Moon, Heart, Clock, CheckCircle, Search, Bell, Download, RefreshCw, Plus, ChevronRight, Video, MapPin, X
+  Droplet, ShieldPlus, TrendingUp, Moon, Heart, Clock, CheckCircle, Search, Bell, Download, RefreshCw, Plus, ChevronRight, Video, MapPin, X,
+  Receipt, CreditCard
 } from "lucide-react";
 
 const supabase = createBrowserClient(
@@ -16,16 +17,16 @@ const supabase = createBrowserClient(
 );
 
 const T = {
-  primary: "#1E4D7B",
-  primaryLight: "#2E5D8B",
-  teal: "#10B981",
-  tealLight: "#BFDBFE",
-  blue: "#1E4D7B",
-  muted: "#94A3B8",
-  text: "#0F172A",
-  sub: "#64748B",
-  bg: "#F8FAFC",
-  border: "#E2E8F0"
+  primary:      "#0D3327",
+  primaryLight: "#1A5C44",
+  teal:         "#10B981",
+  tealLight:    "#A7F3D0",
+  blue:         "#0D3327",
+  muted:        "#94A3B8",
+  text:         "#0F172A",
+  sub:          "#64748B",
+  bg:           "#F4F8F5",
+  border:       "#E2E8F0"
 };
 
 const BOT_URL = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:4000";
@@ -71,9 +72,81 @@ const VitalCard = ({ label, value, unit, icon, onChange, isSelect, readOnly, uni
 const InputField = ({ label, value, onChange, type = "text" }) => (
   <div>
     <label style={{ display: 'block', fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 6 }}>{label}</label>
-    <input type={type} value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1px solid #E2E8F0', fontSize: 14, outline: 'none', color: T.text, boxSizing: 'border-box' }} />
+    <input type={type} value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1.5px solid #E2E8F0', fontSize: 14, outline: 'none', color: T.text, boxSizing: 'border-box', transition: 'all 0.2s', background: '#F8FAFC' }}
+      onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = '0 0 0 4px rgba(13,51,39,0.08)'; e.target.style.background = 'white'; }}
+      onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.boxShadow = 'none'; e.target.style.background = '#F8FAFC'; }}
+    />
   </div>
 );
+
+/* ─── 6-Box OTP Input (same style as admin login) ──────────────────────────── */
+const OTPBoxInput = ({ value, onChange, disabled }) => {
+  const inputs = useRef([]);
+
+  function handleChange(e, idx) {
+    const val = e.target.value.replace(/\D/g, "").slice(-1);
+    const arr = (value + "      ").slice(0, 6).split("");
+    arr[idx] = val || " ";
+    const joined = arr.join("").trimEnd();
+    onChange(joined.replace(/ /g, ""));
+    if (val && idx < 5) inputs.current[idx + 1]?.focus();
+  }
+
+  function handleKey(e, idx) {
+    if (e.key === "Backspace") {
+      const arr = (value + "      ").slice(0, 6).split("");
+      if (!arr[idx] || arr[idx] === " ") {
+        if (idx > 0) {
+          arr[idx - 1] = " ";
+          onChange(arr.join("").trimEnd().replace(/ /g, ""));
+          inputs.current[idx - 1]?.focus();
+        }
+      } else {
+        arr[idx] = " ";
+        onChange(arr.join("").trimEnd().replace(/ /g, ""));
+      }
+    }
+  }
+
+  function handlePaste(e) {
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (pasted) { onChange(pasted); inputs.current[Math.min(pasted.length, 5)]?.focus(); }
+    e.preventDefault();
+  }
+
+  return (
+    <div style={{ display: "flex", gap: 8, justifyContent: "center", margin: "8px 0" }}>
+      {[0,1,2,3,4,5].map((i) => {
+        const filled = i < value.length;
+        return (
+          <input
+            key={i}
+            ref={el => (inputs.current[i] = el)}
+            type="text" inputMode="numeric" maxLength={1}
+            value={filled ? value[i] : ""}
+            disabled={disabled}
+            onChange={e => handleChange(e, i)}
+            onKeyDown={e => handleKey(e, i)}
+            onPaste={handlePaste}
+            style={{
+              width: 48, height: 56, textAlign: "center",
+              fontSize: 22, fontWeight: 900, color: "#0F172A",
+              background: filled ? "rgba(13,51,39,0.05)" : "#F8FAFC",
+              border: `2px solid ${filled ? "rgba(13,51,39,0.25)" : "#E2E8F0"}`,
+              borderRadius: 12, outline: "none",
+              transition: "all 0.15s",
+              opacity: disabled ? 0.5 : 1,
+              cursor: disabled ? "not-allowed" : "text",
+              boxSizing: "border-box",
+            }}
+            onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = "0 0 0 4px rgba(13,51,39,0.10)"; e.target.style.background = "white"; }}
+            onBlur={e => { e.target.style.borderColor = filled ? "rgba(13,51,39,0.25)" : "#E2E8F0"; e.target.style.boxShadow = "none"; e.target.style.background = filled ? "rgba(13,51,39,0.05)" : "#F8FAFC"; }}
+          />
+        );
+      })}
+    </div>
+  );
+};
 
 export default function HospitalChatPage() {
   const params = useParams();
@@ -84,12 +157,13 @@ export default function HospitalChatPage() {
   const [loadingHosp, setLoadingHosp] = useState(true);
 
   // Portal active tab
-  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "messages" | "appointments" | "profile"
+  const [activeTab, setActiveTab] = useState("dashboard"); // "dashboard" | "messages" | "appointments" | "profile" | "permissions"
   const [apptFilter, setApptFilter] = useState("all");
 
   // Portal database states
   const [appointments, setAppointments] = useState([]);
   const [prescriptions, setPrescriptions] = useState([]);
+  const [invoices, setInvoices] = useState([]);
   const [doctors, setDoctors] = useState([]);
   const [loadingData, setLoadingData] = useState(false);
 
@@ -98,6 +172,8 @@ export default function HospitalChatPage() {
   const [bookingStep, setBookingStep] = useState(1); // 1: Specialty, 2: Doctor, 3: Date & Details, 4: Success Screen
   const [selectedSpecialty, setSelectedSpecialty] = useState("");
   const [selectedDoctor, setSelectedDoctor] = useState(null);
+  const [selectedPrescription, setSelectedPrescription] = useState(null);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [bookingDate, setBookingDate] = useState("");
   const [bookingSlot, setBookingSlot] = useState("");
   const [bookingReason, setBookingReason] = useState("");
@@ -146,6 +222,14 @@ export default function HospitalChatPage() {
   });
   const [savingProfile, setSavingProfile] = useState(false);
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+
+  // Toast Notification State
+  const [toastMsg, setToastMsg] = useState("");
+
+  const showToast = (msg) => {
+    setToastMsg(msg);
+    setTimeout(() => setToastMsg(""), 5000);
+  };
 
   // Restore session from localStorage on mount
   useEffect(() => {
@@ -219,6 +303,7 @@ export default function HospitalChatPage() {
       if (data.ok) {
         setAppointments(data.appointments || []);
         setPrescriptions(data.prescriptions || []);
+        setInvoices(data.invoices || []);
       }
     } catch (e) {
       console.error("Failed to fetch history:", e);
@@ -258,7 +343,8 @@ export default function HospitalChatPage() {
             weight: data.profile.weight || "",
             blood_group: data.profile.blood_group || "O+",
             bmi: data.profile.bmi || "",
-            emergency_contact: data.profile.emergency_contact || ""
+            emergency_contact: data.profile.emergency_contact || "",
+            uid: data.profile.uid || ""
           });
         }
       } catch (e) { console.error(e); }
@@ -268,6 +354,246 @@ export default function HospitalChatPage() {
       fetchHistory();
       fetchDoctorsList();
     }
+  }, [sessionStarted]);
+
+  // Auto-refresh history and doctors every 30 seconds while session is active
+  useEffect(() => {
+    if (!sessionStarted) return;
+    const id = setInterval(() => {
+      fetchHistory();
+      fetchDoctorsList();
+    }, 30000);
+    return () => clearInterval(id);
+  }, [sessionStarted]);
+
+  // 5. PRESCRIPTION DETAILS MODAL
+  const renderPrescriptionModal = () => {
+    if (!selectedPrescription) return null;
+    const p = selectedPrescription;
+    return (
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15,23,42,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div className="scale-up" style={{ background: "white", width: "100%", maxWidth: 600, borderRadius: 24, padding: 32, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
+          <button onClick={() => setSelectedPrescription(null)} style={{ position: "absolute", top: 20, right: 20, background: "#F1F5F9", border: "none", width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.sub }}>
+            <X size={18} />
+          </button>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", color: T.blue }}>
+              <FileText size={28} />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: T.primary, fontFamily: "'Syne', sans-serif" }}>Medical Prescription</h2>
+              <p style={{ margin: "4px 0 0 0", fontSize: 14, color: T.sub, fontWeight: 500 }}>Dr. {p.doctors?.name || "Specialist"} · {p.doctors?.department || "Department"} · {p.created_at?.split("T")?.[0]}</p>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            {p.notes && (
+              <div style={{ background: "#F8FAFC", padding: 16, borderRadius: 16, border: "1px solid #E2E8F0" }}>
+                <h4 style={{ margin: "0 0 8px 0", fontSize: 13, color: T.sub, fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Doctor's Notes</h4>
+                <p style={{ margin: 0, fontSize: 14, color: T.primary, lineHeight: 1.6 }}>{p.notes}</p>
+              </div>
+            )}
+
+            {p.medicines && p.medicines.length > 0 && (
+              <div>
+                <h4 style={{ margin: "0 0 12px 0", fontSize: 15, color: T.primary, fontWeight: 800 }}>Prescribed Medicines</h4>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {p.medicines.map((m, idx) => (
+                    <div key={idx} style={{ padding: 16, borderRadius: 16, background: "white", border: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <h5 style={{ margin: 0, fontSize: 15, fontWeight: 700, color: T.primary }}>{m.name}</h5>
+                        <p style={{ margin: "4px 0 0 0", fontSize: 12, color: T.sub }}>{m.instructions || "Follow doctor's schedule"}</p>
+                      </div>
+                      <div style={{ background: "#F1F5F9", padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 700, color: T.primary }}>
+                        {m.schedule && typeof m.schedule === 'object' ? 
+                          ['morning','afternoon','evening','night'].filter(k => m.schedule[k]).map(k => k.charAt(0).toUpperCase() + k.slice(1)).join(" - ")
+                          : "Regularly"}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {p.tests && p.tests.length > 0 && (
+              <div>
+                <h4 style={{ margin: "0 0 12px 0", fontSize: 15, color: T.primary, fontWeight: 800 }}>Diagnostic Lab Tests</h4>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  {p.tests.map((t, idx) => (
+                    <div key={idx} style={{ background: "#FEF2F2", padding: "10px 16px", borderRadius: 12, border: "1px solid #FEE2E2", fontSize: 13, fontWeight: 700, color: "#991B1B", display: "flex", alignItems: "center", gap: 8 }}>
+                      <Activity size={16} />
+                      {t}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 5.5 INVOICE DETAILS MODAL
+  const renderInvoiceModal = () => {
+    if (!selectedInvoice) return null;
+    const inv = selectedInvoice;
+    const isPaid = inv.payment_status === "Paid" || inv.payment_status === "paid";
+    return (
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: "rgba(15,23,42,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+        <div className="scale-up" style={{ background: "white", width: "100%", maxWidth: 600, borderRadius: 24, padding: 32, position: "relative", maxHeight: "90vh", overflowY: "auto" }}>
+          <button onClick={() => setSelectedInvoice(null)} style={{ position: "absolute", top: 20, right: 20, background: "#F1F5F9", border: "none", width: 36, height: 36, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: T.sub }}>
+            <X size={18} />
+          </button>
+          
+          <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 24 }}>
+            <div style={{ width: 56, height: 56, borderRadius: 16, background: isPaid ? "#D1FAE5" : "#FFE4E6", display: "flex", alignItems: "center", justifyContent: "center", color: isPaid ? "#065F46" : "#E11D48" }}>
+              <Receipt size={28} />
+            </div>
+            <div>
+              <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800, color: T.primary, fontFamily: "'Syne', sans-serif" }}>Invoice Details</h2>
+              <p style={{ margin: "4px 0 0 0", fontSize: 14, color: T.sub, fontWeight: 500 }}>
+                Invoice #{inv.invoice_num} · Dr. {inv.doctors?.name || "Specialist"} · {inv.created_at?.split("T")?.[0]}
+              </p>
+            </div>
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ background: "#F8FAFC", padding: 20, borderRadius: 16, border: "1px solid #E2E8F0" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                <span style={{ fontSize: 13, color: T.sub, fontWeight: 600 }}>Billing Facility</span>
+                <span style={{ fontSize: 13, color: T.primary, fontWeight: 700 }}>{inv.facility || "Hospital Clinic"}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                <span style={{ fontSize: 13, color: T.sub, fontWeight: 600 }}>Payment Status</span>
+                <span style={{ fontSize: 11, background: isPaid ? "#D1FAE5" : "#FEF3C7", color: isPaid ? "#065F46" : "#D97706", padding: "4px 8px", borderRadius: 8, fontWeight: 700, textTransform: "capitalize" }}>
+                  {inv.payment_status || "Pending"}
+                </span>
+              </div>
+              {inv.visit_date && (
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+                  <span style={{ fontSize: 13, color: T.sub, fontWeight: 600 }}>Visit Date</span>
+                  <span style={{ fontSize: 13, color: T.primary, fontWeight: 700 }}>{inv.visit_date}</span>
+                </div>
+              )}
+              {inv.due_date && (
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 13, color: T.sub, fontWeight: 600 }}>Due Date</span>
+                  <span style={{ fontSize: 13, color: T.primary, fontWeight: 700 }}>{inv.due_date}</span>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <h4 style={{ margin: "0 0 12px 0", fontSize: 15, color: T.primary, fontWeight: 800 }}>Invoice Items</h4>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {inv.items && inv.items.length > 0 ? (
+                  inv.items.map((item, idx) => (
+                    <div key={idx} style={{ padding: 14, borderRadius: 12, background: "white", border: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <div>
+                        <h5 style={{ margin: 0, fontSize: 13, fontWeight: 700, color: T.primary }}>{item.desc}</h5>
+                        {item.category && <p style={{ margin: "2px 0 0 0", fontSize: 11, color: T.sub }}>{item.category}</p>}
+                      </div>
+                      <div style={{ textAlign: "right" }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: T.primary }}>
+                          ₹{(Number(item.price) * Number(item.qty)).toFixed(2)}
+                        </span>
+                        <p style={{ margin: 0, fontSize: 10, color: T.sub }}>
+                          ₹{Number(item.price).toFixed(2)} × {item.qty}
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p style={{ fontSize: 13, color: T.sub }}>No items listed.</p>
+                )}
+              </div>
+            </div>
+
+            <div style={{ background: "#F8FAFC", padding: 20, borderRadius: 16, border: "1px solid #E2E8F0", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub }}>
+                <span>Subtotal</span>
+                <span>₹{Number(inv.subtotal || 0).toFixed(2)}</span>
+              </div>
+              {Number(inv.tax || 0) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub }}>
+                  <span>Tax / GST</span>
+                  <span>₹{Number(inv.tax).toFixed(2)}</span>
+                </div>
+              )}
+              {Number(inv.insurance_adj || 0) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#10B981", fontWeight: 600 }}>
+                  <span>Insurance Adjustment</span>
+                  <span>-₹{Number(inv.insurance_adj).toFixed(2)}</span>
+                </div>
+              )}
+              {Number(inv.discount || 0) > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#10B981", fontWeight: 600 }}>
+                  <span>Discount</span>
+                  <span>-₹{Number(inv.discount).toFixed(2)}</span>
+                </div>
+              )}
+              <div style={{ height: 1, background: "#E2E8F0", margin: "4px 0" }}></div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 800, color: T.primary }}>
+                <span>Total Due</span>
+                <span>₹{Number(inv.total || 0).toFixed(2)}</span>
+              </div>
+            </div>
+
+            {inv.notes && (
+              <div style={{ background: "#FFFBEB", padding: 16, borderRadius: 16, border: "1px solid #FEF3C7" }}>
+                <h4 style={{ margin: "0 0 6px 0", fontSize: 11, color: "#B45309", fontWeight: 700, textTransform: "uppercase", letterSpacing: 1 }}>Invoice Notes</h4>
+                <p style={{ margin: 0, fontSize: 13, color: "#78350F", lineHeight: 1.5 }}>{inv.notes}</p>
+              </div>
+            )}
+
+            {!isPaid && (
+              <a 
+                href={`${BOT_URL}/pay/${inv.invoice_num}`} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ textDecoration: "none", width: "100%" }}
+              >
+                <button style={{ width: "100%", background: T.teal, color: "white", padding: "14px 20px", borderRadius: 14, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  <CreditCard size={18} /> Proceed to Pay ₹{Number(inv.total).toFixed(2)}
+                </button>
+              </a>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Real-time Appointment Updates (Websocket)
+  useEffect(() => {
+    if (!sessionStarted) return;
+    const phone = localStorage.getItem("cura_phone");
+    if (!phone) return;
+    
+    const formattedPhone = `web_${phone}`;
+    
+    const channel = supabase
+      .channel('patient_appointments')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'appointments',
+          filter: `phone=eq.${formattedPhone}`
+        },
+        (payload) => {
+          showToast(`Your appointment on ${payload.new.date} at ${payload.new.slot} is now ${payload.new.status}.`);
+          fetchHistory(); // Refresh the appointments list instantly
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [sessionStarted]);
 
   // Helper to determine BMI category and colors
@@ -295,11 +621,10 @@ export default function HospitalChatPage() {
     }
   }, [profile.height, profile.weight]);
 
-  // When session is restored AND hospital is loaded, send the initial greeting
+  // When session is restored AND hospital is loaded, we no longer send the auto-greeting.
+  // The user must manually type "Hi" to start.
   useEffect(() => {
     if (sessionRestoredRef.current && sessionStarted && hospital && messages.length === 0) {
-      const savedPhone = localStorage.getItem("cura_phone");
-      if (savedPhone) sendToBot(savedPhone, "Hi");
       sessionRestoredRef.current = false;
     }
   }, [sessionStarted, hospital, messages.length]);
@@ -391,7 +716,6 @@ export default function HospitalChatPage() {
         const userPhone = data.phone || data.email || "unknown";
         localStorage.setItem("cura_phone", userPhone);
         setSessionStarted(true);
-        sendToBot(userPhone, "Hi");
       } else setAuthError(data.error || "Invalid OTP.");
     } catch (err) { setAuthError("Network error."); } finally { setAuthLoading(false); }
   }
@@ -477,9 +801,51 @@ export default function HospitalChatPage() {
     setSavingProfile(false);
   }
 
+  // Helper to parse time strings like "10:30 AM" or "18:00" to [hours, minutes]
+  const parseTimeStr = (str, defH, defM) => {
+    if (!str) return [defH, defM];
+    const m = str.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+    if (!m) return [defH, defM];
+    let h = parseInt(m[1], 10);
+    const min = parseInt(m[2], 10);
+    const ampm = m[3]?.toUpperCase();
+    if (ampm === "PM" && h !== 12) h += 12;
+    if (ampm === "AM" && h === 12) h = 0;
+    return [h, min];
+  };
+
+  // Dynamic Slot Generator synced with Doctor's actual working hours & slot duration
+  const generateDoctorSlots = (doc) => {
+    if (!doc) return [];
+    const dur = doc.slot_duration || 20; 
+    
+    let startH = 9, startM = 0, endH = 17, endM = 0;
+    if (doc.working_hours) {
+      const parts = doc.working_hours.split(/\s*-\s*/);
+      if (parts.length === 2) {
+        [startH, startM] = parseTimeStr(parts[0], 9, 0);
+        [endH, endM]     = parseTimeStr(parts[1], 17, 0);
+      }
+    }
+
+    const slots = [];
+    let current = new Date();
+    current.setHours(startH, startM, 0, 0);
+    
+    const end = new Date();
+    end.setHours(endH, endM, 0, 0);
+    if (end <= current) end.setDate(end.getDate() + 1); // handle overnight shifts just in case
+    
+    while (current < end) {
+      slots.push(current.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: true }));
+      current.setMinutes(current.getMinutes() + dur);
+    }
+    return slots;
+  };
+
   async function sendToBot(userPhone, textToSend, optionId = null) {
     setWaitingForBot(true);
-    if (optionId === null && textToSend !== "Hi") {
+    if (optionId === null) {
       setMessages(prev => [...prev, { sender: "user", type: "text", body: textToSend }]);
     }
     try {
@@ -531,9 +897,6 @@ export default function HospitalChatPage() {
     if (phone) localStorage.removeItem(`cura_chat_${phone}`);
     setMessages([]);
     setShowChatMenu(false);
-    // Re-send greeting after clearing
-    const storedPhone = localStorage.getItem("cura_phone") || "";
-    if (storedPhone) sendToBot(storedPhone, "Hi");
   }
 
   // Helper: render markdown text as formatted React nodes
@@ -598,16 +961,42 @@ export default function HospitalChatPage() {
       return;
     }
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("appointments")
         .update({ date: rescheduleDate, slot: rescheduleSlot })
-        .eq("id", apptId);
+        .eq("id", apptId)
+        .select("*, doctors(name)")
+        .single();
+        
       if (error) {
         alert("Failed to reschedule: " + error.message);
       } else {
         alert("Appointment rescheduled successfully!");
         setReschedulingApptId(null);
         fetchHistory();
+        
+        // Send email notification
+        const storedPhone = localStorage.getItem("cura_phone");
+        if (storedPhone && storedPhone.includes("@")) {
+          try {
+            await fetch("/api/send-email", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                to: storedPhone,
+                subject: "Your Appointment has been Rescheduled",
+                html: `<h3>Appointment Rescheduled</h3>
+                       <p>Hello ${data?.name || "Patient"},</p>
+                       <p>You have successfully rescheduled your appointment with Dr. ${data?.doctors?.name || "our clinic"}.</p>
+                       <p><strong>New Time:</strong> ${rescheduleSlot}</p>
+                       <p><strong>New Date:</strong> ${rescheduleDate}</p>
+                       <p>Thank you for using Cura!</p>`
+              })
+            });
+          } catch (e) {
+            console.error("Failed to send reschedule email", e);
+          }
+        }
       }
     } catch (e) {
       console.error(e);
@@ -661,8 +1050,12 @@ export default function HospitalChatPage() {
 
   // 1. DASHBOARD TAB
   const renderDashboard = () => {
-    const upcoming = appointments.filter(a => a.status !== "cancelled").slice(0, 2);
-    const activePrescriptions = prescriptions.slice(0, 3);
+    const todayStr = new Date().toISOString().split("T")[0];
+    const upcoming = appointments.filter(a => a.status !== "cancelled" && a.date >= todayStr).slice(0, 2);
+    
+    // Separate prescriptions and lab tests based on content
+    const activePrescriptions = prescriptions.filter(p => p.medicines && p.medicines.length > 0).slice(0, 3);
+    const activeLabTests = prescriptions.filter(p => p.tests && p.tests.length > 0).slice(0, 3);
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: "8px 12px", overflowY: "auto", flex: 1, maxHeight: "calc(100vh - 48px)", maxWidth: 1200, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
@@ -670,7 +1063,7 @@ export default function HospitalChatPage() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div>
             <h2 style={{ fontSize: 28, fontWeight: 900, color: T.primary, margin: 0, fontFamily: "'Syne', sans-serif" }}>
-              Welcome back, {profile.name || "Patient"}!
+              Welcome back, {profile.name || "Patient"}! {profile.uid && <span style={{ fontSize: 16, color: T.sub, fontWeight: 700 }}>#{profile.uid}</span>}
             </h2>
             <p style={{ margin: "4px 0 0 0", color: T.sub, fontSize: 13, fontWeight: 500 }}>
               Here&apos;s a quick overview of your health metrics and active consultations.
@@ -747,7 +1140,7 @@ export default function HospitalChatPage() {
                           <h5 style={{ margin: 0, fontSize: 14, fontWeight: 800, color: T.primary }}>Dr. {appt.doctors?.name || "Specialist"}</h5>
                           <p style={{ margin: "2px 0 0 0", fontSize: 11, color: T.sub, fontWeight: 600 }}>{appt.doctors?.department || "General Medicine"}</p>
                         </div>
-                        <span style={{ fontSize: 11, background: appt.status === "confirmed" ? "#D1FAE5" : "#FEF3C7", color: appt.status === "confirmed" ? "#065F46" : "#D97706", padding: "4px 8px", borderRadius: 10, fontWeight: 700, textTransform: "capitalize" }}>
+                        <span style={{ fontSize: 11, background: appt.status === "confirmed" || appt.status === "booked" ? "#D1FAE5" : appt.status === "pending" ? "#FEF3C7" : appt.status === "cancelled" || appt.status === "rejected" ? "#FEE2E2" : "#FEF3C7", color: appt.status === "confirmed" || appt.status === "booked" ? "#065F46" : appt.status === "pending" ? "#D97706" : appt.status === "cancelled" || appt.status === "rejected" ? "#991B1B" : "#D97706", padding: "4px 8px", borderRadius: 10, fontWeight: 700, textTransform: "capitalize" }}>
                           {appt.status}
                         </span>
                       </div>
@@ -793,29 +1186,117 @@ export default function HospitalChatPage() {
               {activePrescriptions.length > 0 ? (
                 activePrescriptions.map(pres => (
                   <div key={pres.id} className="hover-lift" style={{ padding: "14px 16px", borderRadius: 16, background: "#F8FAFC", border: "1px solid #E2E8F0", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", color: T.blue }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={() => setSelectedPrescription(pres)}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", color: T.blue, flexShrink: 0 }}>
                         <FileText size={18} />
                       </div>
-                      <div>
-                        <h5 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.primary }}>{pres.notes || "Medicines Prescribed"}</h5>
+                      <div style={{ minWidth: 0 }}>
+                        <h5 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.primary, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {pres.medicines?.map(m => m.name).join(", ") || "Medicines Prescribed"}
+                        </h5>
                         <p style={{ margin: "2px 0 0 0", fontSize: 11, color: T.sub, fontWeight: 500 }}>Dr. {pres.doctors?.name || "Specialist"} · {pres.created_at?.split("T")?.[0]}</p>
                       </div>
                     </div>
-                    {pres.pdf_url && (
-                      <a href={pres.pdf_url} target="_blank" rel="noopener noreferrer" style={{ color: T.teal, padding: 8, background: "#D1FAE5", borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        <Download size={14} />
-                      </a>
-                    )}
+                    <button onClick={() => setSelectedPrescription(pres)} style={{ background: "transparent", border: "none", color: T.teal, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 8 }}>
+                      <FileText size={16} />
+                      <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700 }}>View</span>
+                    </button>
                   </div>
                 ))
               ) : (
                 <div style={{ textShadow: "none", background: "#F8FAFC", padding: 32, borderRadius: 16, textAlign: "center", border: "1px dashed #E2E8F0", color: T.sub, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
                   <FileText size={28} color={T.muted} />
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>No prescriptions available yet.</p>
+                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>No active prescriptions.</p>
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Lab Tests Section (Added below the double grid) */}
+        {activeLabTests.length > 0 && (
+          <div style={{ background: "white", padding: 24, borderRadius: 24, border: "1px solid #E2E8F0", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: T.primary, fontFamily: "'Syne', sans-serif" }}>Diagnostic Lab Tests</h4>
+              <button onClick={() => setActiveTab("profile")} style={{ background: "transparent", border: "none", color: T.teal, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>View History</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+              {activeLabTests.map(test => (
+                <div key={test.id} className="hover-lift" style={{ padding: "16px", borderRadius: 16, background: "#F8FAFC", border: "1px solid #E2E8F0", display: "flex", alignItems: "flex-start", gap: 16, cursor: "pointer" }} onClick={() => setSelectedPrescription(test)}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: "#FEF3C7", display: "flex", alignItems: "center", justifyContent: "center", color: "#D97706", flexShrink: 0 }}>
+                    <Activity size={20} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <h5 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.primary, lineHeight: 1.4 }}>
+                      {test.tests?.join(", ") || "Lab Tests Requested"}
+                    </h5>
+                    <p style={{ margin: "4px 0 0 0", fontSize: 11, color: T.sub, fontWeight: 500 }}>Ordered by Dr. {test.doctors?.name || "Specialist"} · {test.created_at?.split("T")?.[0]}</p>
+                  </div>
+                  <button onClick={(e) => { e.stopPropagation(); setSelectedPrescription(test); }} style={{ background: "transparent", border: "none", color: "#D97706", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", padding: 8, alignSelf: "center" }}>
+                    <FileText size={16} />
+                    <span style={{ marginLeft: 6, fontSize: 12, fontWeight: 700 }}>View</span>
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Invoices & Billing Section */}
+        <div style={{ background: "white", padding: 24, borderRadius: 24, border: "1px solid #E2E8F0", display: "flex", flexDirection: "column", gap: 16, marginTop: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: T.primary, fontFamily: "'Syne', sans-serif" }}>Invoices & Billing</h4>
+            <span style={{ fontSize: 12, color: T.sub, fontWeight: 600 }}>{invoices.length} total</span>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+            {invoices.length > 0 ? (
+              invoices.map(inv => {
+                const isPaid = inv.payment_status === "Paid" || inv.payment_status === "paid";
+                return (
+                  <div key={inv.id} className="hover-lift" style={{ padding: "16px", borderRadius: 16, background: "#F8FAFC", border: "1px solid #E2E8F0", display: "flex", alignItems: "flex-start", gap: 16, cursor: "pointer" }} onClick={() => setSelectedInvoice(inv)}>
+                    <div style={{ width: 40, height: 40, borderRadius: 12, background: isPaid ? "#D1FAE5" : "#FFE4E6", display: "flex", alignItems: "center", justifyContent: "center", color: isPaid ? "#065F46" : "#E11D48", flexShrink: 0 }}>
+                      <Receipt size={20} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <h5 style={{ margin: 0, fontSize: 13, fontWeight: 800, color: T.primary, lineHeight: 1.4 }}>
+                        Invoice #{inv.invoice_num}
+                      </h5>
+                      <p style={{ margin: "4px 0 0 0", fontSize: 11, color: T.sub, fontWeight: 500 }}>
+                        Dr. {inv.doctors?.name || "Specialist"} · {inv.created_at?.split("T")?.[0]}
+                      </p>
+                      <p style={{ margin: "4px 0 0 0", fontSize: 13, fontWeight: 700, color: T.primary }}>
+                        ₹{Number(inv.total).toFixed(2)}
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", alignSelf: "center" }}>
+                      <span style={{ fontSize: 10, background: isPaid ? "#D1FAE5" : "#FEF3C7", color: isPaid ? "#065F46" : "#D97706", padding: "4px 8px", borderRadius: 8, fontWeight: 700, textTransform: "capitalize" }}>
+                        {inv.payment_status || "Pending"}
+                      </span>
+                      {!isPaid && (
+                        <a 
+                          href={`${BOT_URL}/pay/${inv.invoice_num}`} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                          style={{ textDecoration: "none" }}
+                        >
+                          <button style={{ background: T.teal, color: "white", padding: "6px 12px", borderRadius: 10, border: "none", fontSize: 11, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                            <CreditCard size={12} /> Pay
+                          </button>
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            ) : (
+              <div style={{ gridColumn: "1 / -1", textShadow: "none", background: "#F8FAFC", padding: 32, borderRadius: 16, textAlign: "center", border: "1px dashed #E2E8F0", color: T.sub, display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <Receipt size={28} color={T.muted} />
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>No invoices found.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -824,11 +1305,12 @@ export default function HospitalChatPage() {
 
   // 2. APPOINTMENTS TAB
   const renderAppointments = () => {
+    const todayStr = new Date().toISOString().split("T")[0];
     let filteredAppts = appointments;
     if (apptFilter === "upcoming") {
-      filteredAppts = appointments.filter(a => a.status !== "cancelled" && a.status !== "completed");
+      filteredAppts = appointments.filter(a => a.status !== "cancelled" && a.status !== "completed" && a.date >= todayStr);
     } else if (apptFilter === "past") {
-      filteredAppts = appointments.filter(a => a.status === "completed" || a.status === "cancelled");
+      filteredAppts = appointments.filter(a => a.status === "completed" || a.status === "cancelled" || a.date < todayStr);
     }
 
     return (
@@ -865,7 +1347,8 @@ export default function HospitalChatPage() {
                 </thead>
                 <tbody>
                   {filteredAppts.map((appt, index) => {
-                    const isUpcoming = appt.status !== "cancelled" && appt.status !== "completed";
+                    const todayStr = new Date().toISOString().split("T")[0];
+                    const isUpcoming = appt.status !== "cancelled" && appt.status !== "completed" && appt.date >= todayStr;
                     const isVideo = appt.consultation_type === "call";
                     const isRescheduling = reschedulingApptId === appt.id;
 
@@ -876,14 +1359,12 @@ export default function HospitalChatPage() {
                         <td style={{ padding: "18px 20px" }}>
                           {isRescheduling ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                              <input type="date" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11 }} />
+                              <input type="date" value={rescheduleDate} onChange={e => setRescheduleDate(e.target.value)} min={new Date().toISOString().split('T')[0]} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11 }} />
                               <select value={rescheduleSlot} onChange={e => setRescheduleSlot(e.target.value)} style={{ padding: "4px 8px", borderRadius: 6, border: "1px solid #E2E8F0", fontSize: 11 }}>
                                 <option value="">Select Time</option>
-                                <option value="09:00 AM">09:00 AM</option>
-                                <option value="10:30 AM">10:30 AM</option>
-                                <option value="01:30 PM">01:30 PM</option>
-                                <option value="03:00 PM">03:00 PM</option>
-                                <option value="04:30 PM">04:30 PM</option>
+                                {generateDoctorSlots(appt.doctors).map(slot => (
+                                  <option key={slot} value={slot}>{slot}</option>
+                                ))}
                               </select>
                               <div style={{ display: "flex", gap: 4 }}>
                                 <button onClick={() => submitReschedule(appt.id)} style={{ background: T.primary, color: "white", border: "none", padding: "4px 8px", borderRadius: 4, fontSize: 10, fontWeight: 700, cursor: "pointer" }}>Save</button>
@@ -905,8 +1386,8 @@ export default function HospitalChatPage() {
                         <td style={{ padding: "18px 20px" }}>
                           <span style={{
                             padding: "4px 10px", borderRadius: 12, fontSize: 11, fontWeight: 700, textTransform: "capitalize",
-                            background: appt.status === "confirmed" || appt.status === "completed" ? "#D1FAE5" : appt.status === "cancelled" ? "#FEE2E2" : "#FEF3C7",
-                            color: appt.status === "confirmed" || appt.status === "completed" ? "#065F46" : appt.status === "cancelled" ? "#991B1B" : "#D97706",
+                            background: appt.status === "confirmed" || appt.status === "completed" || appt.status === "booked" ? "#D1FAE5" : appt.status === "cancelled" || appt.status === "rejected" ? "#FEE2E2" : "#FEF3C7",
+                            color: appt.status === "confirmed" || appt.status === "completed" || appt.status === "booked" ? "#065F46" : appt.status === "cancelled" || appt.status === "rejected" ? "#991B1B" : "#D97706",
                           }}>{appt.status}</span>
                         </td>
                         <td style={{ padding: "18px 20px", textAlign: "center" }}>
@@ -958,14 +1439,26 @@ export default function HospitalChatPage() {
       });
     });
     prescriptions.forEach(p => {
-      timeline.push({
-        date: p.created_at?.split("T")?.[0],
-        type: "Prescription Issued",
-        desc: `Dr. ${p.doctors?.name || "Specialist"} prescribed medical prescription with remarks: "${p.notes || "Use as directed"}"`,
-        icon: <FileText size={12} />,
-        bg: "#D1FAE5",
-        color: "#047857"
-      });
+      if (p.medicines && p.medicines.length > 0) {
+        timeline.push({
+          date: p.created_at?.split("T")?.[0],
+          type: "Prescription Issued",
+          desc: `Dr. ${p.doctors?.name || "Specialist"} prescribed: ${p.medicines.map(m => m.name).join(", ")}`,
+          icon: <FileText size={12} />,
+          bg: "#D1FAE5",
+          color: "#047857"
+        });
+      }
+      if (p.tests && p.tests.length > 0) {
+        timeline.push({
+          date: p.created_at?.split("T")?.[0],
+          type: "Lab Tests Requested",
+          desc: `Dr. ${p.doctors?.name || "Specialist"} ordered diagnostic tests: ${p.tests.join(", ")}`,
+          icon: <Activity size={12} />,
+          bg: "#FEF3C7",
+          color: "#D97706"
+        });
+      }
     });
 
     timeline.sort((a, b) => new Date(b.date) - new Date(a.date));
@@ -991,6 +1484,11 @@ export default function HospitalChatPage() {
                   <span style={{ background: "#10B981", color: "white", padding: "4px 10px", borderRadius: 20, fontSize: 10, fontWeight: 800, display: "flex", alignItems: "center", gap: 4 }}>
                     <CheckCircle size={11} /> VERIFIED USER
                   </span>
+                  {profile.uid && (
+                    <span style={{ background: "#065F46", color: "#A7F3D0", padding: "4px 10px", borderRadius: 20, fontSize: 10, fontWeight: 800 }}>
+                      ID: #{profile.uid}
+                    </span>
+                  )}
                 </div>
                 <p style={{ margin: "4px 0 0 0", fontSize: 13, color: "#A7F3D0", fontWeight: 500 }}>Verified patient since May 2026</p>
                 <div style={{ display: "flex", gap: 24, marginTop: 16 }}>
@@ -1261,14 +1759,14 @@ export default function HospitalChatPage() {
                 {/* Calendar Date Picker */}
                 <div>
                   <label style={{ display: "block", fontSize: 11, fontWeight: 800, color: T.sub, textTransform: "uppercase", marginBottom: 8 }}>Choose Date</label>
-                  <input type="date" required value={bookingDate} onChange={e => setBookingDate(e.target.value)} style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #CBD5E1", fontSize: 13, outline: "none" }} />
+                  <input type="date" required value={bookingDate} onChange={e => setBookingDate(e.target.value)} min={new Date().toISOString().split('T')[0]} style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #CBD5E1", fontSize: 13, outline: "none" }} />
                 </div>
 
                 {/* Slot Choice Grid */}
                 <div>
                   <label style={{ display: "block", fontSize: 11, fontWeight: 800, color: T.sub, textTransform: "uppercase", marginBottom: 8 }}>Select Time Slot</label>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
-                    {["09:00 AM", "10:30 AM", "12:00 PM", "01:30 PM", "03:00 PM", "04:30 PM"].map(slot => (
+                    {generateDoctorSlots(selectedDoctor).map(slot => (
                       <button
                         key={slot} type="button"
                         onClick={() => setBookingSlot(slot)}
@@ -1480,12 +1978,114 @@ export default function HospitalChatPage() {
     );
   };
 
+  const renderPermissions = () => {
+    const accessRequests = prescriptions.filter(p => p.diagnosis === "MEDICAL_ACCESS_REQUEST");
+
+    return (
+      <div style={{ padding: "40px 48px", height: "100%", overflowY: "auto", boxSizing: "border-box" }}>
+        <h2 style={{ fontSize: 24, fontWeight: 900, color: "#0F172A", marginBottom: 32, fontFamily: "'Syne', sans-serif" }}>Data Access Permissions</h2>
+        
+        <p style={{ fontSize: 14, color: "#64748B", marginBottom: 32, lineHeight: 1.6 }}>
+          Manage which doctors have access to your full medical history (past prescriptions and lab reports).
+        </p>
+
+        {accessRequests.length === 0 ? (
+          <div style={{ padding: 48, textAlign: "center", background: "#F8FAFC", borderRadius: 24, border: "1.5px dashed #E2E8F0" }}>
+            <ShieldPlus size={48} color="#94A3B8" style={{ marginBottom: 16 }} />
+            <h3 style={{ fontSize: 18, fontWeight: 700, color: "#334155", margin: "0 0 8px 0" }}>No Access Requests</h3>
+            <p style={{ fontSize: 14, color: "#64748B", margin: 0 }}>You don't have any pending or active data access requests from doctors.</p>
+          </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            {accessRequests.map(req => (
+              <div key={req.id} style={{ background: "white", borderRadius: 20, border: "1px solid #E2E8F0", padding: 24, display: "flex", alignItems: "center", justifyContent: "space-between", boxShadow: "0 4px 12px rgba(0,0,0,0.02)" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ width: 48, height: 48, borderRadius: "50%", background: "#EEF2FF", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                    <ShieldPlus size={24} color="#4F46E5" />
+                  </div>
+                  <div>
+                    <h4 style={{ margin: "0 0 4px 0", fontSize: 16, fontWeight: 700, color: "#0F172A" }}>
+                      Dr. {req.doctors?.name || "Specialist"}
+                    </h4>
+                    <p style={{ margin: 0, fontSize: 13, color: "#64748B" }}>
+                      {req.doctors?.department || "Department"} · Requested on {req.date}
+                    </p>
+                  </div>
+                </div>
+
+                <div style={{ display: "flex", gap: 12 }}>
+                  {req.status === "active" ? (
+                    <>
+                      <button onClick={async () => {
+                        const { error } = await supabase.from("prescriptions").update({ status: "completed" }).eq("id", req.id);
+                        if (!error) {
+                          setPrescriptions(prev => prev.map(p => p.id === req.id ? { ...p, status: "completed" } : p));
+                          showToast("Access Granted");
+                        }
+                      }} style={{ padding: "8px 16px", borderRadius: 12, background: T.teal, color: "white", border: "none", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>
+                        Approve
+                      </button>
+                      <button onClick={async () => {
+                        const { error } = await supabase.from("prescriptions").delete().eq("id", req.id);
+                        if (!error) {
+                          setPrescriptions(prev => prev.filter(p => p.id !== req.id));
+                          showToast("Request Denied");
+                        }
+                      }} style={{ padding: "8px 16px", borderRadius: 12, background: "#FEF2F2", color: "#DC2626", border: "1px solid #FECACA", fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "'Syne', sans-serif" }}>
+                        Deny
+                      </button>
+                    </>
+                  ) : (
+                    <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: "#059669", background: "#ECFDF5", padding: "6px 12px", borderRadius: 8 }}>
+                        ✓ Approved
+                      </span>
+                      <button onClick={async () => {
+                        const { error } = await supabase.from("prescriptions").delete().eq("id", req.id);
+                        if (!error) {
+                          setPrescriptions(prev => prev.filter(p => p.id !== req.id));
+                          showToast("Access Revoked");
+                        }
+                      }} style={{ padding: "6px 12px", borderRadius: 8, background: "white", color: "#64748B", border: "1px solid #E2E8F0", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        Revoke Access
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (loadingHosp) return <div style={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: T.bg }}>Loading...</div>;
 
   if (!hospital) return <div style={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: T.bg }}>Hospital Not Found</div>;
 
   return (
-    <div style={{ display: "flex", height: "100vh", maxHeight: "100vh", overflow: "hidden", background: T.bg, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+    <div style={{ display: "flex", height: "100vh", maxHeight: "100vh", overflow: "hidden", background: T.bg, fontFamily: "'Plus Jakarta Sans', sans-serif", position: "relative" }}>
+      
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {toastMsg && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, x: "-50%" }}
+            animate={{ opacity: 1, y: 0, x: "-50%" }}
+            exit={{ opacity: 0, y: -20, x: "-50%" }}
+            style={{
+              position: "absolute", top: 24, left: "50%", zIndex: 9999,
+              background: T.primary, color: "white", padding: "12px 24px",
+              borderRadius: 999, fontSize: 14, fontWeight: 700, boxShadow: "0 8px 32px rgba(13,51,39,0.3)",
+              display: "flex", alignItems: "center", gap: 8
+            }}
+          >
+            <Bell size={16} />
+            {toastMsg}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 1. LEFT SIDEBAR */}
       {sessionStarted && (
@@ -1505,6 +2105,7 @@ export default function HospitalChatPage() {
             <NavItem icon={<MessageSquare size={18} />} label="Messages" active={activeTab === "messages"} onClick={() => setActiveTab("messages")} />
             <NavItem icon={<Calendar size={18} />} label="Appointments" active={activeTab === "appointments"} onClick={() => setActiveTab("appointments")} />
             <NavItem icon={<FileText size={18} />} label="Medical Profile" active={activeTab === "profile"} onClick={() => setActiveTab("profile")} />
+            <NavItem icon={<ShieldPlus size={18} />} label="Data Permissions" active={activeTab === "permissions"} onClick={() => setActiveTab("permissions")} />
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1524,7 +2125,7 @@ export default function HospitalChatPage() {
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', background: T.bg }}>
             <motion.div
               initial={{ opacity: 0, y: 15 }} animate={{ opacity: 1, y: 0 }}
-              style={{ background: "white", borderRadius: 24, padding: "2.5rem 2rem", boxShadow: "0 20px 48px rgba(30,77,123,0.08)", width: "100%", maxWidth: 420 }}
+              style={{ background: "white", borderRadius: 24, padding: "2.5rem 2rem", boxShadow: "0 20px 48px rgba(13,51,39,0.10)", width: "100%", maxWidth: 420, border: "1px solid rgba(13,51,39,0.06)" }}
             >
               <h2 style={{ textAlign: "center", fontFamily: "'Syne', sans-serif", fontSize: 22, fontWeight: 900, color: T.text, marginBottom: 8 }}>
                 {authMode === "reset" ? "Reset Password" : `${hospital.name} Portal`}
@@ -1533,9 +2134,9 @@ export default function HospitalChatPage() {
                 {authMode === "reset" ? "Enter your email or phone to receive a reset code." : "Login to access your medical records and appointments."}
               </p>
 
-              <div style={{ display: "flex", marginBottom: 24, borderRadius: 12, background: "rgba(30,77,123,0.04)", padding: 4 }}>
-                <button onClick={() => { setAuthMode("login"); setAuthStep("input"); setAuthError(""); }} style={{ flex: 1, padding: "10px 0", borderRadius: 10, background: authMode === "login" ? "white" : "transparent", boxShadow: authMode === "login" ? "0 4px 12px rgba(30,77,123,0.06)" : "none", border: "none", color: authMode === "login" ? T.primary : T.sub, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>LOGIN</button>
-                <button onClick={() => { setAuthMode("signup"); setAuthStep("input"); setAuthError(""); }} style={{ flex: 1, padding: "10px 0", borderRadius: 10, background: authMode === "signup" ? "white" : "transparent", boxShadow: authMode === "signup" ? "0 4px 12px rgba(30,77,123,0.06)" : "none", border: "none", color: authMode === "signup" ? T.primary : T.sub, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>SIGN UP</button>
+              <div style={{ display: "flex", marginBottom: 24, borderRadius: 12, background: "rgba(13,51,39,0.05)", padding: 4 }}>
+                <button onClick={() => { setAuthMode("login"); setAuthStep("input"); setAuthError(""); }} style={{ flex: 1, padding: "10px 0", borderRadius: 10, background: authMode === "login" ? "white" : "transparent", boxShadow: authMode === "login" ? "0 4px 12px rgba(13,51,39,0.08)" : "none", border: "none", color: authMode === "login" ? T.primary : T.sub, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>LOGIN</button>
+                <button onClick={() => { setAuthMode("signup"); setAuthStep("input"); setAuthError(""); }} style={{ flex: 1, padding: "10px 0", borderRadius: 10, background: authMode === "signup" ? "white" : "transparent", boxShadow: authMode === "signup" ? "0 4px 12px rgba(13,51,39,0.08)" : "none", border: "none", color: authMode === "signup" ? T.primary : T.sub, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>SIGN UP</button>
               </div>
 
               {authMode === "reset" ? (
@@ -1548,12 +2149,15 @@ export default function HospitalChatPage() {
                   </form>
                 ) : (
                   <form onSubmit={handleVerifyResetOtp}>
-                    <InputField label="ENTER OTP" value={otp} onChange={setOtp} />
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>ENTER RESET OTP</label>
+                      <OTPBoxInput value={otp} onChange={setOtp} disabled={authLoading} />
+                    </div>
                     <p style={{ fontSize: 12, color: T.sub, marginTop: 8, textAlign: "center" }}>Sent to {contactInfo} · <span style={{ color: T.primary, cursor: "pointer", fontWeight: 600 }} onClick={() => { setAuthStep("input"); setOtp(""); setAuthError(""); }}>Edit</span></p>
                     <div style={{ marginTop: 16 }}><InputField label="NEW PASSWORD" type="password" value={password} onChange={setPassword} /></div>
                     <div style={{ marginTop: 16 }}><InputField label="CONFIRM NEW PASSWORD" type="password" value={confirmPassword} onChange={setConfirmPassword} /></div>
                     {authError && <p style={{ color: "#EF4444", fontSize: 12, marginTop: 12, textAlign: "center" }}>{authError}</p>}
-                    <button type="submit" disabled={authLoading} style={{ width: "100%", padding: 15, background: T.primary, color: "white", border: "none", borderRadius: 12, fontWeight: 900, marginTop: 24, cursor: "pointer" }}>{authLoading ? "RESETTING..." : "RESET PASSWORD"}</button>
+                    <button type="submit" disabled={authLoading || otp.length < 6} style={{ width: "100%", padding: 15, background: otp.length === 6 ? `linear-gradient(135deg, ${T.primary}, ${T.primaryLight})` : "#E2E8F0", color: otp.length === 6 ? "white" : T.sub, border: "none", borderRadius: 12, fontWeight: 900, marginTop: 20, cursor: otp.length === 6 && !authLoading ? "pointer" : "not-allowed", transition: "all 0.3s", fontSize: 13, letterSpacing: "0.08em" }}>{authLoading ? "RESETTING..." : "RESET PASSWORD"}</button>
                   </form>
                 )
               ) : (
@@ -1573,14 +2177,17 @@ export default function HospitalChatPage() {
                       <p style={{ textAlign: "right", marginTop: 8, fontSize: 12, color: T.teal, fontWeight: 700, cursor: "pointer" }} onClick={() => { setAuthMode("reset"); setAuthStep("input"); setAuthError(""); }}>Forgot Password?</p>
                     )}
                     {authError && <p style={{ color: "#EF4444", fontSize: 12, marginTop: 12 }}>{authError}</p>}
-                    <button type="submit" disabled={authLoading} style={{ width: "100%", padding: 15, background: T.primary, color: "white", border: "none", borderRadius: 12, fontWeight: 900, marginTop: 24, cursor: "pointer" }}>{authLoading ? "SENDING OTP..." : "SEND OTP"}</button>
+                    <button type="submit" disabled={authLoading} style={{ width: "100%", padding: 15, background: `linear-gradient(135deg, ${T.primary}, ${T.primaryLight})`, color: "white", border: "none", borderRadius: 12, fontWeight: 900, marginTop: 24, cursor: "pointer", fontSize: 13, letterSpacing: "0.08em", boxShadow: "0 6px 20px rgba(13,51,39,0.25)" }}>{authLoading ? "SENDING OTP..." : "SEND OTP"}</button>
                   </form>
                 ) : (
                   <form onSubmit={handleVerifyOtp}>
-                    <InputField label="ENTER OTP" value={otp} onChange={setOtp} />
+                    <div style={{ marginBottom: 8 }}>
+                      <label style={{ display: 'block', fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 10, textAlign: 'center' }}>ENTER OTP</label>
+                      <OTPBoxInput value={otp} onChange={setOtp} disabled={authLoading} />
+                    </div>
                     <p style={{ fontSize: 12, color: T.sub, marginTop: 8, textAlign: "center" }}>Sent to {contactInfo} · <span style={{ color: T.primary, cursor: "pointer", fontWeight: 600 }} onClick={() => { setAuthStep("input"); setOtp(""); setAuthError(""); }}>Edit</span></p>
                     {authError && <p style={{ color: "#EF4444", fontSize: 12, marginTop: 12, textAlign: "center" }}>{authError}</p>}
-                    <button type="submit" disabled={authLoading} style={{ width: "100%", padding: 15, background: T.primary, color: "white", border: "none", borderRadius: 12, fontWeight: 900, marginTop: 24, cursor: "pointer" }}>{authLoading ? "VERIFYING..." : "VERIFY & START"}</button>
+                    <button type="submit" disabled={authLoading || otp.length < 6} style={{ width: "100%", padding: 15, background: otp.length === 6 ? `linear-gradient(135deg, ${T.primary}, ${T.primaryLight})` : "#E2E8F0", color: otp.length === 6 ? "white" : T.sub, border: "none", borderRadius: 12, fontWeight: 900, marginTop: 20, cursor: otp.length === 6 && !authLoading ? "pointer" : "not-allowed", transition: "all 0.3s", fontSize: 13, letterSpacing: "0.08em" }}>{authLoading ? "VERIFYING..." : "VERIFY & START"}</button>
                   </form>
                 )
               )}
@@ -1592,6 +2199,7 @@ export default function HospitalChatPage() {
             {activeTab === "dashboard" && renderDashboard()}
             {activeTab === "appointments" && renderAppointments()}
             {activeTab === "profile" && renderMedicalProfile()}
+            {activeTab === "permissions" && renderPermissions()}
             {activeTab === "messages" && (
               // ORIGINAL CHAT UI
               <div style={{ flex: 1, background: '#fff', borderRadius: 24, display: 'flex', flexDirection: 'column', overflow: 'hidden', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', border: '1px solid #E2E8F0', maxWidth: 1200, width: "100%", margin: "0 auto", height: "100%", maxHeight: "100%", minHeight: 0 }}>
@@ -1802,6 +2410,8 @@ export default function HospitalChatPage() {
 
       {/* Booking Stepper Overlay Modal */}
       {renderConsultationModal()}
+      {renderPrescriptionModal()}
+      {renderInvoiceModal()}
 
       {/* Profile Saved Success Fullscreen Overlay Animation */}
       <AnimatePresence>

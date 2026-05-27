@@ -136,7 +136,7 @@ const fieldSt = {
 
 // ── PDF Generator — pixel-perfect match to design ────────────────────────────
 const generatePremiumPDF = (rx, doctor) => {
-  const patientId = rx.patient_uid ? `#${rx.patient_uid}` : (rx.patient_phone ? `#PT-${rx.patient_phone.replace(/^web_/, "").slice(-4)}` : "#PT-0000");
+  const patientId = rx.patient_uid ? `#${rx.patient_uid}` : (rx.patient_phone ? `#PT-${rx.patient_phone.slice(-4)}` : "#PT-0000");
   const docName  = doctor?.name || "Doctor";
   const docDept  = doctor?.department || "General Medicine";
   const initial  = docName.charAt(0).toUpperCase();
@@ -153,68 +153,7 @@ const generatePremiumPDF = (rx, doctor) => {
     </span>`;
   };
 
-  const medicinesHtml = (rx.medicines || []).map((m) => {
-    const isMorning   = m.morning   && m.morning   !== "0";
-    const isAfternoon = m.afternoon && m.afternoon !== "0";
-    const isEvening   = m.evening   && m.evening   !== "0";
-    const isNight     = m.night     && m.night     !== "0";
 
-    const totalTimes = [isMorning, isAfternoon, isEvening, isNight].filter(Boolean).length;
-    let scheduleText = `${totalTimes} Tablet${totalTimes !== 1 ? "s" : ""} ${totalTimes}x Daily`;
-    if (totalTimes === 1) scheduleText = `1 Tablet 1x Daily`;
-    if (m.schedule === "Alternate Days")    scheduleText = "Every Alternate Day";
-    if (m.schedule === "SOS / As needed")   scheduleText = "PRN (As needed)";
-    if (m.schedule === "Weekly")            scheduleText = "1 Tablet Weekly";
-
-    // Sun / Moon text symbols that render reliably in html2canvas
-    const sunSvg  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${isMorning ? "#EAB308" : "#CBD5E1"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="6"/><line x1="12" y1="18" x2="12" y2="22"/><line x1="4.22" y1="4.22" x2="7.05" y2="7.05"/><line x1="16.95" y1="16.95" x2="19.78" y2="19.78"/><line x1="2" y1="12" x2="6" y2="12"/><line x1="18" y1="12" x2="22" y2="12"/><line x1="4.22" y1="19.78" x2="7.05" y2="16.95"/><line x1="16.95" y1="7.05" x2="19.78" y2="4.22"/></svg>`;
-    const cloud1  = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${isAfternoon ? "#60A5FA" : "#CBD5E1"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>`;
-    const sunsetSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${isEvening ? "#F97316" : "#CBD5E1"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M17 18a5 5 0 0 0-10 0"/><line x1="12" y1="2" x2="12" y2="9"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/><line x1="23" y1="22" x2="1" y2="22"/><polyline points="8 6 12 2 16 6"/></svg>`;
-    const moonSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="${isNight ? "#818CF8" : "#CBD5E1"}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:middle;"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
-
-    return `
-<div style="border:1.5px solid #E2E8F0;border-radius:12px;padding:20px 22px;margin-bottom:14px;background:#ffffff;">
-  <table style="width:100%;border-collapse:collapse;margin-bottom:14px;">
-    <tr>
-      <td style="vertical-align:top;">
-        <div style="font-size:16px;font-weight:800;color:#0F172A;margin-bottom:4px;">${m.name}${m.dosage ? " " + m.dosage : ""}</div>
-        <div style="font-size:12px;font-weight:500;color:#64748B;">${m.schedule} &bull; Course: ${m.quantity} Units</div>
-      </td>
-      <td style="vertical-align:top;text-align:right;white-space:nowrap;">
-        <span style="background:#ECFDF5;color:#059669;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-right:10px;">${m.form}</span>
-        <span style="font-size:12px;font-weight:600;color:#94A3B8;">${m.quantity} Units</span>
-      </td>
-    </tr>
-  </table>
-  <div style="height:1px;background:#F1F5F9;margin-bottom:14px;"></div>
-  <table style="width:100%;border-collapse:collapse;">
-    <tr>
-      <td style="vertical-align:middle;padding:0;">
-        <span style="display:inline-flex;align-items:center;gap:5px;margin-right:18px;opacity:${isMorning ? "1" : "0.35"};">
-          ${sunSvg}
-          <span style="font-size:13px;font-weight:${isMorning ? "700" : "500"};color:${isMorning ? "#0F172A" : "#94A3B8"};">Morning</span>
-        </span>
-        <span style="display:inline-flex;align-items:center;gap:5px;margin-right:18px;opacity:${isAfternoon ? "1" : "0.35"};">
-          ${cloud1}
-          <span style="font-size:13px;font-weight:${isAfternoon ? "700" : "500"};color:${isAfternoon ? "#0F172A" : "#94A3B8"};">Afternoon</span>
-        </span>
-        <span style="display:inline-flex;align-items:center;gap:5px;margin-right:18px;opacity:${isEvening ? "1" : "0.35"};">
-          ${sunsetSvg}
-          <span style="font-size:13px;font-weight:${isEvening ? "700" : "500"};color:${isEvening ? "#0F172A" : "#94A3B8"};">Evening</span>
-        </span>
-        <span style="display:inline-flex;align-items:center;gap:5px;opacity:${isNight ? "1" : "0.35"};">
-          ${moonSvg}
-          <span style="font-size:13px;font-weight:${isNight ? "700" : "500"};color:${isNight ? "#0F172A" : "#94A3B8"};">Night</span>
-        </span>
-      </td>
-      <td style="vertical-align:middle;text-align:right;white-space:nowrap;">
-        <span style="font-size:13px;font-weight:800;color:#0F172A;">${scheduleText}</span>
-      </td>
-    </tr>
-  </table>
-  ${m.instructions ? `<div style="margin-top:12px;padding:10px 14px;background:#FFFBEB;border:1px solid #FCD34D;border-radius:8px;font-style:italic;font-size:12px;color:#92400E;">Instruction: ${m.instructions}</div>` : ""}
-</div>`;
-  }).join("");
 
   return `<div id="pdf-root" style="font-family:'Plus Jakarta Sans',sans-serif;padding:40px 44px;color:#0F172A;width:760px;box-sizing:border-box;background:white;">
 <style>
@@ -271,14 +210,18 @@ ${rx.diagnosis ? `
   <div style="font-size:15px;font-weight:600;color:#0F172A;line-height:1.5;">${rx.diagnosis}${rx.notes ? `<br/><span style="color:#64748B;font-weight:500;font-size:13px;">${rx.notes}</span>` : ""}</div>
 </div>` : ""}
 
-<!-- MEDICATION PLAN HEADING -->
+<!-- LAB TESTS HEADING -->
 <div style="display:flex;align-items:center;gap:8px;margin-bottom:16px;">
   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#143D30" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-  <span style="font-size:16px;font-weight:800;color:#0F172A;">Medication Plan</span>
+  <span style="font-size:16px;font-weight:800;color:#0F172A;">Diagnostic Requisition</span>
 </div>
 
-${medicinesHtml}
-
+<!-- LAB TESTS -->
+${rx.tests?.length ? `
+<div style="margin-top:26px;margin-bottom:26px;">
+  <div style="font-size:10px;font-weight:700;color:#64748B;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:12px;">Lab Tests</div>
+  <div>${rx.tests.map((t) => `<span style="display:inline-block;background:#F1F5F9;color:#334155;padding:0 16px;height:32px;line-height:32px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid #E2E8F0;margin-right:8px;margin-bottom:8px;">${t}</span>`).join("")}</div>
+</div>` : ""}
 
 <!-- FOLLOW UP -->
 ${rx.follow_up ? `
@@ -703,7 +646,7 @@ function PatientDropdown({ value, onChange, doctorId }) {
           if (seen.has(k)) return false;
           seen.add(k); return true;
         });
-        
+
         // Fetch UIDs
         const { data: wpData } = await supabase.from("web_patients").select("email, phone, uid");
         const uidMap = {};
@@ -952,13 +895,12 @@ function MedCard({ med, index, onChange, onRemove }) {
 }
 
 // ── Live Preview Panel ────────────────────────────────────────────────────────
-function PreviewPanel({ form, doctor, draftRef, pharmacies, onSaveWithPharmacy }) {
+function PreviewPanel({ form, doctor, draftRef, laboratories, onSaveWithLaboratory }) {
   const [isSending, setIsSending]     = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [successMsg, setSuccessMsg]   = useState("");
-  const [showPharmacyModal, setShowPharmacyModal] = useState(false);
-  const med    = form.medicines?.[0];
-  const hasMed = med?.name;
+  const [showLaboratoryModal, setShowLaboratoryModal] = useState(false);
+  const hasTests = form.tests?.length > 0;
 
   const buildRx = () => ({
     patient_name:  form.patient?.name  || "—",
@@ -973,38 +915,54 @@ function PreviewPanel({ form, doctor, draftRef, pharmacies, onSaveWithPharmacy }
   });
 
   const handleSendToPatient = async () => {
-    if (!form.patient) { alert("Please select a patient first."); return; }
-    if (!form.diagnosis) { alert("Please add a diagnosis first."); return; }
-
+    if (!form.patient && !form.diagnosis) { alert("Please select a patient and add a diagnosis first."); return; }
     setIsSending(true);
     try {
-      const rx = buildRx();
+      const rx          = buildRx();
+      const htmlContent = generatePremiumPDF(rx, doctor);
 
-      // Save via secure API route (uses service key to bypass RLS)
-      const res = await fetch("/api/save-prescription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patient_name:  rx.patient_name,
-          patient_phone: rx.patient_phone,
-          doctor_id:     doctor?.id || null,
-          date:          rx.date || new Date().toISOString().split("T")[0],
-          diagnosis:     rx.diagnosis,
-          notes:         rx.notes || null,
-          medicines:     rx.medicines || [],
-          tests:         rx.tests || [],
-        }),
+      if (!document.getElementById("pdf-font-link")) {
+        const link = Object.assign(document.createElement("link"), {
+          id: "pdf-font-link", rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400;1,500&display=swap",
+        });
+        document.head.appendChild(link);
+      }
+
+      const container = document.createElement("div");
+      container.innerHTML = htmlContent;
+      Object.assign(container.style, {
+        position: "fixed", top: "-9999px", left: "-9999px",
+        width: "760px", background: "white", zIndex: "-1", pointerEvents: "none",
       });
+      document.body.appendChild(container);
+      await document.fonts.ready;
+      await new Promise((r) => setTimeout(r, 1200));
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save");
+      const html2pdf = (await import("html2pdf.js")).default;
+      const pdfBase64 = await html2pdf()
+        .from(container.firstChild)
+        .set({
+          margin:      [12, 10, 16, 10],
+          filename:    "prescription.pdf",
+          html2canvas: { scale: 2, useCORS: true, logging: false, width: 760, windowWidth: 760 },
+          jsPDF:       { unit: "mm", format: "a4", orientation: "portrait" },
+        })
+        .outputPdf("datauristring");
 
-      setSuccessMsg("Sent to Patient Portal ✓");
+      document.body.removeChild(container);
+
+      const res = await fetch("/api/send-patient", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdfBase64, patientName: rx.patient_name, patientPhone: rx.patient_phone }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      setSuccessMsg("Sent to Patient");
       setShowSuccess(true);
-      setTimeout(() => setShowSuccess(false), 3500);
+      setTimeout(() => setShowSuccess(false), 3000);
     } catch (err) {
       console.error(err);
-      alert("Failed to send to patient portal: " + err.message);
+      alert("Failed to send: " + err.message);
     } finally {
       setIsSending(false);
     }
@@ -1052,7 +1010,7 @@ function PreviewPanel({ form, doctor, draftRef, pharmacies, onSaveWithPharmacy }
             {form.patient?.phone ? (
               <>
                 {form.patient.phone.includes("@") ? <Mail size={10} style={{ opacity: 0.6 }} /> : <Phone size={10} style={{ opacity: 0.6 }} />}
-                <span>ID: {form.patient.phone.replace(/^web_/, "").slice(-8)}</span>
+                <span>ID: {form.patient.uid ? `#${form.patient.uid}` : form.patient.phone.replace(/^web_/, "").slice(-8)}</span>
               </>
             ) : "No patient selected"}
             {form.patient?.age ? ` · Age: ${form.patient.age}` : ""}
@@ -1060,43 +1018,21 @@ function PreviewPanel({ form, doctor, draftRef, pharmacies, onSaveWithPharmacy }
         </div>
       </div>
 
-      {hasMed ? (
+      {hasTests ? (
         <div style={{ padding: "14px 16px", borderBottom: `1px solid ${C.border}` }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.accentDk, textTransform: "uppercase", letterSpacing: ".6px" }}>Prescribed Medication</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.accentDk, textTransform: "uppercase", letterSpacing: ".6px" }}>Requested Lab Tests</div>
             <Badge status={form.status} />
           </div>
-          <div style={{ fontWeight: 700, fontSize: 14, color: C.text }}>{med.name}{med.dosage ? " " + med.dosage : ""}</div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{med.quantity} {med.form}</div>
-          <div style={{ background: "#f8fafc", borderRadius: 8, padding: "10px 12px", marginTop: 10 }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: C.muted, marginBottom: 7 }}>Dosage Instructions</div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{med.schedule}</div>
-                <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: ".5px" }}>Freq</div>
-              </div>
-              <div style={{ textAlign: "right" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{med.morning}-{med.afternoon}-{med.evening}-{med.night}</div>
-                <div style={{ fontSize: 9, color: C.muted, textTransform: "uppercase", letterSpacing: ".5px" }}>M | A | E | N</div>
-              </div>
-            </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {form.tests.map((t, i) => (
+              <span key={i} style={{ background: "#f0fdf4", border: `1px solid ${C.accent}44`, borderRadius: 20, padding: "4px 10px", fontSize: 11, color: C.accentDk, fontWeight: 600 }}>{t}</span>
+            ))}
           </div>
-          {med.instructions && (
-            <div style={{ background: "#fffbeb", border: "1px solid #fcd34d", borderRadius: 8, padding: "8px 10px", marginTop: 8, display: "flex", gap: 6 }}>
-              <span style={{ fontSize: 14 }}>⚠️</span>
-              <div style={{ fontSize: 11, color: "#92400e", lineHeight: 1.4 }}>{med.instructions}</div>
-            </div>
-          )}
         </div>
       ) : (
         <div style={{ padding: "20px 16px", borderBottom: `1px solid ${C.border}`, textAlign: "center", color: C.muted, fontSize: 12 }}>
-          Fill in medicine details to see preview
-        </div>
-      )}
-
-      {form.medicines?.length > 1 && (
-        <div style={{ padding: "8px 16px", borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ fontSize: 11, color: C.muted }}>+{form.medicines.length - 1} more medicine(s)</div>
+          Select lab tests to see preview
         </div>
       )}
 
@@ -1121,12 +1057,12 @@ function PreviewPanel({ form, doctor, draftRef, pharmacies, onSaveWithPharmacy }
             cursor: isSending ? "not-allowed" : "pointer", opacity: isSending ? 0.7 : 1,
             display: "flex", alignItems: "center", justifyContent: "center", gap: 6
           }}>📧 {isSending ? "Sending..." : "Send to Patient"}</button>
-          
-          <button onClick={() => setShowPharmacyModal(true)} style={{
+
+          <button onClick={() => setShowLaboratoryModal(true)} style={{
             background: C.brand, color: "#fff", border: "none",
             borderRadius: 10, padding: "9px 0", fontSize: 12, fontWeight: 600, cursor: "pointer",
             display: "flex", alignItems: "center", justifyContent: "center", gap: 6
-          }}>🏥 Send to Pharmacy</button>
+          }}>🏥 Send to Laboratory</button>
         </div>
         <button onClick={handlePrint} style={{
           width: "100%", background: "transparent", color: C.muted, border: "none",
@@ -1136,11 +1072,11 @@ function PreviewPanel({ form, doctor, draftRef, pharmacies, onSaveWithPharmacy }
       </div>
 
       <div style={{ padding: "0 16px 12px", fontSize: 10, color: C.muted, textAlign: "center", lineHeight: 1.5 }}>
-        HIPAA & GDPR compliant · Encrypted digital prescription
+        HIPAA & GDPR compliant · Encrypted diagnostic requisition
       </div>
 
       <AnimatePresence>
-        {showPharmacyModal && (
+        {showLaboratoryModal && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             style={{
               position: "absolute", inset: 0, background: "rgba(255,255,255,0.98)",
@@ -1149,27 +1085,27 @@ function PreviewPanel({ form, doctor, draftRef, pharmacies, onSaveWithPharmacy }
             }}
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <h3 style={{ margin: 0, fontSize: 16, color: C.text }}>Select Pharmacy</h3>
-              <button onClick={() => setShowPharmacyModal(false)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
+              <h3 style={{ margin: 0, fontSize: 16, color: C.text }}>Select Laboratory</h3>
+              <button onClick={() => setShowLaboratoryModal(false)} style={{ background: "none", border: "none", fontSize: 16, cursor: "pointer" }}>✕</button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", display: "flex", flexDirection: "column", gap: 8 }}>
-              {pharmacies?.map(p => (
-                <button key={p.id} onClick={() => {
-                  setShowPharmacyModal(false);
-                  onSaveWithPharmacy(p.id);
-                  setSuccessMsg("Sent to Pharmacy");
+              {laboratories?.map(l => (
+                <button key={l.id} onClick={() => {
+                  setShowLaboratoryModal(false);
+                  onSaveWithLaboratory(l.id);
+                  setSuccessMsg("Sent to Laboratory");
                   setShowSuccess(true);
                   setTimeout(() => setShowSuccess(false), 3000);
                 }} style={{
                   padding: "12px", background: C.bg, border: `1px solid ${C.border}`, borderRadius: 10,
                   textAlign: "left", cursor: "pointer", display: "flex", flexDirection: "column"
                 }} onMouseEnter={e => e.currentTarget.style.borderColor = C.brand} onMouseLeave={e => e.currentTarget.style.borderColor = C.border}>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{p.name}</span>
-                  <span style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{p.location}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: C.text }}>{l.name}</span>
+                  <span style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>Accreditation: {l.accreditation_number}</span>
                 </button>
               ))}
-              {(!pharmacies || pharmacies.length === 0) && (
-                <div style={{ fontSize: 12, color: C.muted, textAlign: "center", marginTop: 20 }}>No pharmacies registered</div>
+              {(!laboratories || laboratories.length === 0) && (
+                <div style={{ fontSize: 12, color: C.muted, textAlign: "center", marginTop: 20 }}>No laboratories registered</div>
               )}
             </div>
           </motion.div>
@@ -1215,27 +1151,29 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
         patient:   rx._patient || { name: rx.patient_name, phone: rx.patient_phone?.replace(/^web_/, ""), age: rx.patient_age } || null,
         date:      rx.date || new Date().toISOString().slice(0, 10),
         diagnosis: rx.diagnosis || "",
-        notes:     (rx.notes || "").replace(/\n?\[PHARMACY:.*?\]/g, ""), // Strip out the internal pharmacy tag for editing
+        notes:     (rx.notes || "").replace(/\n?\[LABORATORY:.*?\]/g, ""), // Strip out the internal laboratory tag for editing
         follow_up: rx.follow_up || "",
-        status:    rx.status || "active",
-        medicines: (rx.medicines?.length ? rx.medicines : [emptyMed()]).map(normalizeMed),
+        status:    rx.status || "pending",
+        medicines: rx.medicines || [],
         tests:     rx.tests || [],
-        pharmacy_id: rx.notes?.match(/\[PHARMACY: (.*?)\]/)?.[1] || "",
+        laboratory_id: rx.notes?.match(/\[LABORATORY: (.*?)\]/)?.[1] || "",
       };
     }
     return {
       patient: null,
       date: new Date().toISOString().slice(0, 10),
-      diagnosis: "", notes: "", follow_up: "", status: "active",
-      medicines: [emptyMed()], pharmacy_id: "",
+      diagnosis: "", notes: "", follow_up: "", status: "pending",
+      medicines: [], tests: [], laboratory_id: "",
     };
   };
 
   const [form, setForm] = useState(() => getInitialForm(editRx));
 
+  const [laboratories, setLaboratories] = useState([]);
+
   useEffect(() => {
-    supabase.from("pharmacies").select("id, name, location").then(({ data }) => {
-      if (data) setPharmacies(data);
+    supabase.from("laboratories").select("id, name, accreditation_number").then(({ data }) => {
+      if (data) setLaboratories(data);
     });
   }, []);
 
@@ -1249,14 +1187,14 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
   const updateMed = (id, field, val) => setForm((p) => ({ ...p, medicines: p.medicines.map((m) => m._id === id ? { ...m, [field]: val } : m) }));
   const removeMed = (id) => setForm((p) => ({ ...p, medicines: p.medicines.filter((m) => m._id !== id) }));
 
-  const save = async (overridePharmId) => {
+  const save = async (overrideLabId) => {
     if (!form.patient && !editRx) { push("Please select a patient", "error"); return; }
     if (!form.diagnosis.trim())    { push("Diagnosis is required", "error"); return; }
     setSaving(true);
     let finalNotes = form.notes.trim();
-    const pId = typeof overridePharmId === "string" ? overridePharmId : form.pharmacy_id;
-    if (pId) {
-      finalNotes = finalNotes ? `${finalNotes}\n[PHARMACY: ${pId}]` : `[PHARMACY: ${pId}]`;
+    const lId = typeof overrideLabId === "string" ? overrideLabId : form.laboratory_id;
+    if (lId) {
+      finalNotes = finalNotes ? `${finalNotes}\n[LABORATORY: ${lId}]` : `[LABORATORY: ${lId}]`;
     }
 
     const payload = {
@@ -1266,8 +1204,8 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
       patient_age:   form.patient?.age   || editRx?.patient_age   || null,
       date:      form.date,
       diagnosis: form.diagnosis.trim(),
-      medicines: form.medicines.map(({ _id, ...rest }) => rest),
-      tests:     editRx?.tests || [],
+      medicines: editRx?.medicines || [],
+      tests:     form.tests,
       notes:     finalNotes || null,
       follow_up: form.follow_up || null,
       status:    form.status,
@@ -1298,13 +1236,13 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
       <Toast toasts={toasts} />
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{editRx ? "Edit Prescription" : "New Prescription"}</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Create and authorize medical instructions for your patient.</div>
+          <div style={{ fontSize: 18, fontWeight: 800, color: C.text }}>{editRx ? "Edit Lab Request" : "New Lab Request"}</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Create and authorize diagnostic tests for your patient.</div>
         </div>
         <div style={{ display: "flex", gap: 10 }}>
           <button onClick={onCancel} style={{ background: C.card, border: `1.5px solid ${C.border}`, color: C.muted, borderRadius: 20, padding: "9px 20px", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>✕ Cancel</button>
           <button onClick={save} disabled={saving} style={{ background: C.brand, color: "#fff", border: "none", borderRadius: 20, padding: "9px 24px", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
-            ✓ {saving ? "Saving…" : "Finalize & Sign"}
+            ✓ {saving ? "Saving…" : "Order Tests"}
           </button>
         </div>
       </div>
@@ -1340,21 +1278,28 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
             </div>
           </div>
 
-          {/* Drug interaction warning */}
-          <DrugInteractionWarning medicines={form.medicines} />
-
-          {/* Medicine cards */}
-          {form.medicines.map((med, i) => (
-            <MedCard key={med._id} med={med} index={i} onChange={updateMed} onRemove={removeMed} />
-          ))}
-
-          <button onClick={() => setForm((p) => ({ ...p, medicines: [...p.medicines, emptyMed()] }))} style={{
-            background: C.card, border: `1.5px dashed ${C.accent}`, color: C.accentDk,
-            borderRadius: 12, padding: "12px 20px", fontSize: 13, fontWeight: 600,
-            cursor: "pointer", width: "100%", marginBottom: 14,
-          }}>+ Add Another Medicine</button>
 
 
+          {/* Lab Tests */}
+          <div style={{ background: C.card, borderRadius: 14, border: `1.5px solid ${C.border}`, padding: 20, marginBottom: 14, boxShadow: "0 1px 6px rgba(0,0,0,.05)" }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 12 }}>🔬 Lab Tests / Investigations</div>
+            <LabTestInput onAdd={(t) => {
+              if (!form.tests.includes(t)) setForm((p) => ({ ...p, tests: [...p.tests, t] }));
+            }} />
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+              {form.tests.map((t, i) => (
+                <span key={i} style={{
+                  background: "#f0fdf4", border: `1px solid ${C.accent}44`, borderRadius: 20,
+                  padding: "4px 12px", fontSize: 12, color: C.accentDk, fontWeight: 500,
+                  display: "flex", alignItems: "center", gap: 6,
+                }}>
+                  {t}
+                  <span onClick={() => setForm((p) => ({ ...p, tests: p.tests.filter((_, idx) => idx !== i) }))}
+                    style={{ cursor: "pointer", color: C.danger, fontWeight: 700, fontSize: 11 }}>✕</span>
+                </span>
+              ))}
+            </div>
+          </div>
 
           {/* Follow-up, Status, Notes */}
           <div style={{ background: C.card, borderRadius: 14, border: `1.5px solid ${C.border}`, padding: 20, marginBottom: 14, boxShadow: "0 1px 6px rgba(0,0,0,.05)" }}>
@@ -1374,7 +1319,7 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
                     backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 10 10'%3E%3Cpath fill='%236b8078' d='M5 7L0 2h10z'/%3E%3C/svg%3E")`,
                     backgroundRepeat: "no-repeat", backgroundPosition: "right 12px center", paddingRight: 32,
                   }}>
-                    {["active","completed","cancelled"].map((s) => <option key={s}>{s}</option>)}
+                    {["pending","active","completed","cancelled"].map((s) => <option key={s}>{s}</option>)}
                   </select>
                 </div>
               </div>
@@ -1393,7 +1338,7 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
           <div style={{ display: "flex", justifyContent: "flex-end", gap: 10 }}>
             <button onClick={onCancel} style={{ background: C.card, border: `1.5px solid ${C.border}`, color: C.muted, borderRadius: 10, padding: "10px 22px", fontSize: 13, fontWeight: 600, cursor: "pointer" }}>Cancel</button>
             <button onClick={save} disabled={saving} style={{ background: C.brand, color: "#fff", border: "none", borderRadius: 10, padding: "10px 26px", fontSize: 13, fontWeight: 700, cursor: saving ? "not-allowed" : "pointer", opacity: saving ? .7 : 1 }}>
-              {saving ? "Saving…" : editRx ? "Update Prescription" : "Save Prescription"}
+              {saving ? "Saving…" : editRx ? "Update Lab Request" : "Save Lab Request"}
             </button>
           </div>
         </div>
@@ -1402,10 +1347,10 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
           form={form} 
           doctor={doctor} 
           draftRef={draftIdVal} 
-          pharmacies={pharmacies} 
-          onSaveWithPharmacy={async (pharmId) => {
-            setField("pharmacy_id", pharmId);
-            save(pharmId);
+          laboratories={laboratories} 
+          onSaveWithLaboratory={async (labId) => {
+            setField("laboratory_id", labId);
+            save(labId);
           }} 
         />
       </div>
@@ -1417,33 +1362,15 @@ function RxForm({ doctorId, doctor, editRx, onSaved, onCancel, logPHIAccess }) {
 function RxDetail({ rx }) {
   return (
     <div style={{ padding: "14px 20px 18px", background: "#f8fafc", borderTop: `1px solid ${C.border}` }}>
-      {rx.medicines?.length > 0 && (
-        <div style={{ marginBottom: 14 }}>
-          <div style={{ fontSize: 11, color: C.accentDk, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 8 }}>Medicines</div>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr>
-                {["Name","Dosage","Form","Qty","Morning","Afternoon","Evening","Night","Schedule"].map((h) => (
-                  <th key={h} style={{ textAlign: "left", padding: "4px 8px", fontWeight: 700, fontSize: 10, textTransform: "uppercase", letterSpacing: ".5px", color: C.muted }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {rx.medicines.map((m, i) => (
-                <tr key={i} style={{ borderTop: `1px solid ${C.border}` }}>
-                  <td style={{ padding: "6px 8px", fontWeight: 600, color: C.text }}>{m.name}</td>
-                  <td style={{ padding: "6px 8px", color: C.muted }}>{m.dosage}</td>
-                  <td style={{ padding: "6px 8px", color: C.muted }}>{m.form}</td>
-                  <td style={{ padding: "6px 8px", color: C.muted }}>{m.quantity}</td>
-                  <td style={{ padding: "6px 8px", color: C.muted }}>{m.morning}</td>
-                  <td style={{ padding: "6px 8px", color: C.muted }}>{m.afternoon}</td>
-                  <td style={{ padding: "6px 8px", color: C.muted }}>{m.evening}</td>
-                  <td style={{ padding: "6px 8px", color: C.muted }}>{m.night}</td>
-                  <td style={{ padding: "6px 8px", color: C.muted }}>{m.schedule}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+      {rx.tests?.length > 0 && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontSize: 11, color: C.accentDk, fontWeight: 700, letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Lab Tests</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {rx.tests.map((t, i) => (
+              <span key={i} style={{ background: "#f0fdf4", border: `1px solid ${C.accent}44`, borderRadius: 20, padding: "3px 10px", fontSize: 12, color: C.accentDk }}>{t}</span>
+            ))}
+          </div>
         </div>
       )}
       <div style={{ display: "flex", gap: 32 }}>
@@ -1462,6 +1389,7 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess 
 
   const counts = {
     all:       prescriptions.length,
+    pending:   prescriptions.filter((r) => r.status === "pending").length,
     active:    prescriptions.filter((r) => r.status === "active").length,
     completed: prescriptions.filter((r) => r.status === "completed").length,
     cancelled: prescriptions.filter((r) => r.status === "cancelled").length,
@@ -1487,13 +1415,14 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess 
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12, marginBottom: 20 }}>
-        {[
-          { label: "Total",     val: counts.all,       color: C.info },
-          { label: "Active",    val: counts.active,    color: C.accentDk },
-          { label: "Completed", val: counts.completed, color: "#7c3aed" },
-          { label: "Cancelled", val: counts.cancelled, color: C.danger },
-        ].map((c) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, marginBottom: 20 }}>
+          {[
+            { label: "Total",     val: counts.all,       color: C.info },
+            { label: "Pending",   val: counts.pending,   color: "#F59E0B" },
+            { label: "In Progress",val: counts.active,   color: C.accentDk },
+            { label: "Completed", val: counts.completed, color: "#7c3aed" },
+            { label: "Cancelled", val: counts.cancelled, color: C.danger },
+          ].map((c) => (
           <div key={c.label} style={{
             background: C.card, border: `1.5px solid ${c.color}22`,
             borderRadius: 12, padding: "16px 20px", boxShadow: "0 1px 6px rgba(0,0,0,.06)",
@@ -1512,14 +1441,14 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess 
           onBlur={(e) => e.target.style.borderColor = C.border}
         />
         <div style={{ display: "flex", gap: 6 }}>
-          {["all","active","completed","cancelled"].map((f) => (
+          {["all","pending","active","completed","cancelled"].map((f) => (
             <button key={f} onClick={() => setFilter(f)} style={{
               background: filter === f ? C.brand : C.card,
               color:      filter === f ? "#fff" : C.muted,
               border:     `1.5px solid ${filter === f ? C.brand : C.border}`,
               borderRadius: 20, padding: "7px 14px", fontSize: 12, fontWeight: 600,
               cursor: "pointer", textTransform: "capitalize",
-            }}>{f}{counts[f] > 0 ? ` (${counts[f]})` : ""}</button>
+            }}>{f === "active" ? "In Progress" : f}{counts[f] > 0 ? ` (${counts[f]})` : ""}</button>
           ))}
         </div>
         <button onClick={onNew} style={{ background: C.brand, color: "#fff", fontWeight: 700, border: "none", borderRadius: 10, padding: "9px 20px", fontSize: 13, cursor: "pointer" }}>+ New Rx</button>
@@ -1529,7 +1458,7 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess 
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
             <tr style={{ background: "#f8fafc" }}>
-              {["Patient","Age","Phone","Date","Diagnosis","Medicines","Follow-up","Status","Actions"].map((h) => (
+              {["Patient","Age","Phone","Date","Diagnosis","Lab Tests","Follow-up","Status","Actions"].map((h) => (
                 <th key={h} style={{ padding: "12px 14px", textAlign: "left", fontSize: 11, color: C.muted, fontWeight: 700, textTransform: "uppercase", letterSpacing: ".5px", borderBottom: `1.5px solid ${C.border}` }}>{h}</th>
               ))}
             </tr>
@@ -1556,18 +1485,19 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess 
                   </td>
                   <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>{rx.patient_age || "—"}</td>
                   <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                       {rx.patient_phone ? (
-                        <>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           {rx.patient_phone.includes("@") ? <Mail size={12} style={{ opacity: 0.6 }} /> : <Phone size={12} style={{ opacity: 0.6 }} />}
                           <span>{rx.patient_phone.replace(/^web_/, "")}</span>
-                        </>
-                      ) : "—"}
+                        </div>
+                      ) : "No phone"}
+                      {rx.patient_uid && <div style={{ fontSize: 11, fontWeight: 700, color: C.primary, marginTop: 4 }}>ID: #{rx.patient_uid}</div>}
                     </div>
                   </td>
                   <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>{fmt(rx.date)}</td>
                   <td style={{ padding: "11px 14px", color: C.text, fontSize: 13, maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{rx.diagnosis}</td>
-                  <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>{rx.medicines?.length || 0} med(s)</td>
+                  <td style={{ padding: "11px 14px", color: C.muted, fontSize: 13 }}>{rx.tests?.length || 0} test(s)</td>
                   <td style={{ padding: "11px 14px", color: rx.follow_up ? C.accentDk : C.muted, fontSize: 13, fontWeight: rx.follow_up ? 600 : 400 }}>{fmt(rx.follow_up)}</td>
                   <td style={{ padding: "11px 14px" }}><Badge status={rx.status} /></td>
                   <td style={{ padding: "11px 14px" }}>
@@ -1596,7 +1526,7 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess 
 }
 
 // ── Main Export ───────────────────────────────────────────────────────────────
-export default function PrescriptionTab({ doctorId }) {
+export default function LabTestTab({ doctorId }) {
   const { push, toasts } = useToast();
   const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading]             = useState(true);
@@ -1624,7 +1554,25 @@ export default function PrescriptionTab({ doctorId }) {
       push(error.message, "error");
       return;
     }
-    setPrescriptions(data || []);
+    // Fetch Web Patients to map UIDs
+    const { data: wpData } = await supabase.from("web_patients").select("email, phone, uid");
+    const uidMap = {};
+    if (wpData) {
+      wpData.forEach(wp => {
+        if (wp.phone) uidMap[wp.phone] = wp.uid;
+        if (wp.email) {
+          uidMap[wp.email] = wp.uid;
+          uidMap[`web_${wp.email}`] = wp.uid;
+        }
+      });
+    }
+
+    const mergedData = (data || []).map(rx => ({
+      ...rx,
+      patient_uid: uidMap[rx.patient_phone] || null
+    }));
+
+    setPrescriptions(mergedData);
     setLoading(false);
   }, [doctorId, push]);
 
@@ -1663,13 +1611,13 @@ export default function PrescriptionTab({ doctorId }) {
         <>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
             <div>
-              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>Prescriptions</h2>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: C.text }}>Lab Requests</h2>
               {doctor && <div style={{ fontSize: 13, color: C.muted, marginTop: 2 }}>Dr. {doctor.name} · {doctor.department}</div>}
             </div>
             <button onClick={() => { setEditRx(null); setView("form"); }} style={{
               background: C.brand, color: "#fff", fontWeight: 700, border: "none",
               borderRadius: 10, padding: "10px 20px", fontSize: 13, cursor: "pointer",
-            }}>+ New Prescription</button>
+            }}>+ New Lab Request</button>
           </div>
           <RxList
             prescriptions={prescriptions} loading={loading}

@@ -36,6 +36,7 @@ export default function LoginPage() {
   const [resetError, setResetError] = useState(null);
   const [doctorName, setDoctorName] = useState("");
   const [pendingUserId, setPendingUserId] = useState(null);
+  const [pendingUserRole, setPendingUserRole] = useState(null);
   const [mounted, setMounted] = useState(false);
 
   const router = useRouter();
@@ -53,16 +54,35 @@ export default function LoginPage() {
       });
       if (authError) throw authError;
       const userId = authData.user.id;
-      const { data: doctor } = await supabase
-        .from("doctors").select("first_login, name, user_id, id").eq("user_id", userId).maybeSingle();
-      if (doctor) {
-        if (doctor.first_login) {
-          setDoctorName(doctor.name); setPendingUserId(userId);
-          setShowResetModal(true); setLoading(false); return;
+      const [
+        { data: doctor },
+        { data: pharmacy },
+        { data: laboratory }
+      ] = await Promise.all([
+        supabase.from("doctors").select("first_login, name, user_id, id").eq("user_id", userId).maybeSingle(),
+        supabase.from("pharmacies").select("first_login, name, user_id, id").eq("user_id", userId).maybeSingle(),
+        supabase.from("laboratories").select("first_login, name, user_id, id").eq("user_id", userId).maybeSingle(),
+      ]);
+
+      let userEntity = doctor || pharmacy || laboratory;
+      let userRole = doctor ? "doctor" : pharmacy ? "pharmacy" : laboratory ? "laboratory" : null;
+
+      if (userEntity) {
+        if (userEntity.first_login) {
+          setDoctorName(userEntity.name); 
+          setPendingUserId(userId);
+          setPendingUserRole(userRole);
+          setShowResetModal(true); 
+          setLoading(false); 
+          return;
         }
         const redirectTo = sessionStorage.getItem("loginRedirect");
-        if (redirectTo) { sessionStorage.removeItem("loginRedirect"); router.push(redirectTo); }
-        else router.push("/doctor");
+        if (redirectTo) { 
+          sessionStorage.removeItem("loginRedirect"); 
+          router.push(redirectTo); 
+        } else {
+          router.push(userRole === 'doctor' ? "/doctor" : (userRole === 'pharmacy' ? "/pharmacy" : "/laboratory"));
+        }
       } else {
         const redirectTo = sessionStorage.getItem("loginRedirect");
         if (redirectTo) { sessionStorage.removeItem("loginRedirect"); router.push(redirectTo); }
@@ -83,10 +103,14 @@ export default function LoginPage() {
     try {
       const { error: passError } = await supabase.auth.updateUser({ password: newPassword });
       if (passError) throw passError;
+      
+      const table = pendingUserRole === "doctor" ? "doctors" : pendingUserRole === "pharmacy" ? "pharmacies" : "laboratories";
       const { error: dbError } = await supabase
-        .from("doctors").update({ first_login: false }).eq("user_id", pendingUserId);
+        .from(table).update({ first_login: false }).eq("user_id", pendingUserId);
       if (dbError) throw dbError;
-      router.push("/doctor"); router.refresh();
+      
+      router.push(pendingUserRole === 'doctor' ? "/doctor" : (pendingUserRole === 'pharmacy' ? "/pharmacy" : "/laboratory")); 
+      router.refresh();
     } catch (err) {
       setResetError(err.message || "Failed to update password. Try again.");
       setResetLoading(false);
@@ -351,7 +375,7 @@ export default function LoginPage() {
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="doctor@cura.com"
+                    placeholder="portal@cura.com"
                     style={{
                       width: "100%", paddingLeft: 44, paddingRight: 16, paddingTop: 14, paddingBottom: 14,
                       background: "#F8FAFC", border: "1.5px solid #E2E8F0",
@@ -463,7 +487,7 @@ export default function LoginPage() {
                 First Login
               </p>
               <p style={{ fontSize: 13, color: "#64748B", textAlign: "center", marginBottom: 28, lineHeight: 1.6 }}>
-                Welcome, <span style={{ fontWeight: 800, color: PRIMARY }}>Dr. {doctorName}</span>!<br />
+                Welcome, <span style={{ fontWeight: 800, color: PRIMARY }}>{pendingUserRole === 'doctor' ? 'Dr. ' : ''}{doctorName}</span>!<br />
                 Please set a permanent password.
               </p>
 

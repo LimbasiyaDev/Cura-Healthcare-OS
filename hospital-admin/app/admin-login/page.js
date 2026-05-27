@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
 import {
@@ -183,18 +183,31 @@ export default function AdminLoginPage() {
     return () => clearTimeout(t);
   }, [countdown]);
 
-  // Auto-verify login OTP
-  useEffect(() => {
-    if (otp.length === 6 && step === "otp" && !loading) handleVerifyOTP();
-  }, [otp]);
+  // Guard refs to prevent double-fire from React StrictMode / re-renders
+  const verifyingRef     = useRef(false);
+  const verifyingForgotRef = useRef(false);
 
-  // Auto-verify forgot OTP
+  // Auto-verify login OTP — guard against race condition
   useEffect(() => {
-    if (forgotOtp.length === 6 && step === "forgot_otp" && !loading) handleVerifyForgotOTP();
-  }, [forgotOtp]);
+    if (otp.length === 6 && step === "otp" && !loading && !verifyingRef.current) {
+      verifyingRef.current = true;
+      handleVerifyOTP().finally(() => { verifyingRef.current = false; });
+    }
+  }, [otp, step]);
 
+  // Auto-verify forgot OTP — guard against race condition
+  useEffect(() => {
+    if (forgotOtp.length === 6 && step === "forgot_otp" && !loading && !verifyingForgotRef.current) {
+      verifyingForgotRef.current = true;
+      handleVerifyForgotOTP().finally(() => { verifyingForgotRef.current = false; });
+    }
+  }, [forgotOtp, step]);
+
+  // Cryptographically secure 6-digit OTP using Web Crypto API
   function genOTP() {
-    return Math.floor(100000 + Math.random() * 900000).toString();
+    const arr = new Uint32Array(1);
+    crypto.getRandomValues(arr);
+    return String(100000 + (arr[0] % 900000));
   }
 
   /* ── Step 1: Login ── */
@@ -272,21 +285,29 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
     try {
+      // Invalidate all previous unused OTPs for this email to prevent stale codes
+      await supabase.from("otp_verifications")
+        .update({ used: true })
+        .eq("email", email.trim().toLowerCase())
+        .eq("used", false);
+
       const newOTP = genOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      await supabase.from("otp_verifications").insert({
+      const { error: insertErr } = await supabase.from("otp_verifications").insert({
         email: email.trim().toLowerCase(), otp: newOTP, expires_at: expiresAt, used: false,
       });
-      const otpRecipient = email.trim().toLowerCase();
-      await fetch("/api/send-otp-email", {
+      if (insertErr) throw new Error("Could not create OTP. Try again.");
+
+      const res = await fetch("/api/send-otp-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otp: newOTP, email: otpRecipient })
+        body: JSON.stringify({ otp: newOTP, email: email.trim().toLowerCase() })
       });
+      if (!res.ok) throw new Error("Could not send OTP email.");
       setCountdown(60);
       setOtp("");
-    } catch {
-      setError("Failed to resend OTP.");
+    } catch (err) {
+      setError(err.message || "Failed to resend OTP.");
     }
     setLoading(false);
   }
@@ -405,21 +426,29 @@ export default function AdminLoginPage() {
     setError(null);
     setLoading(true);
     try {
+      // Invalidate all previous unused OTPs for this email to prevent stale codes
+      await supabase.from("otp_verifications")
+        .update({ used: true })
+        .eq("email", forgotEmail.trim().toLowerCase())
+        .eq("used", false);
+
       const newOTP = genOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-      await supabase.from("otp_verifications").insert({
+      const { error: insertErr } = await supabase.from("otp_verifications").insert({
         email: forgotEmail.trim().toLowerCase(), otp: newOTP, expires_at: expiresAt, used: false,
       });
-      const otpRecipient = forgotEmail.trim().toLowerCase();
-      await fetch("/api/send-otp-email", {
+      if (insertErr) throw new Error("Could not create OTP. Try again.");
+
+      const res = await fetch("/api/send-otp-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ otp: newOTP, email: otpRecipient })
+        body: JSON.stringify({ otp: newOTP, email: forgotEmail.trim().toLowerCase() })
       });
+      if (!res.ok) throw new Error("Could not send OTP email.");
       setCountdown(60);
       setForgotOtp("");
-    } catch {
-      setError("Failed to resend OTP.");
+    } catch (err) {
+      setError(err.message || "Failed to resend OTP.");
     }
     setLoading(false);
   }

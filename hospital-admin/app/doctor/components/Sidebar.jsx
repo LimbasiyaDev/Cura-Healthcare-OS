@@ -1,7 +1,7 @@
 "use client";
 import { 
   LayoutDashboard, Users, BarChart3, Settings, HelpCircle, 
-  LogOut, BedDouble, Calendar, Clock, Zap, Receipt, Stethoscope
+  LogOut, BedDouble, Calendar, Clock, Zap, Receipt, Stethoscope, FlaskConical
 } from "lucide-react";
 
 export default function DoctorSidebar({ activeNav, setActiveNav, doctor, onSignOut, onSupportClick }) {
@@ -12,6 +12,7 @@ export default function DoctorSidebar({ activeNav, setActiveNav, doctor, onSignO
     { id: "settings",      label: "Settings",        Icon: Settings },
     { id: "invoice",       label: "Invoice",         Icon: Receipt },
     { id: "prescriptions", label: "Prescriptions",   Icon: Stethoscope },
+    { id: "lab_tests",     label: "Lab Tests",       Icon: FlaskConical },
   ];
 
   return (

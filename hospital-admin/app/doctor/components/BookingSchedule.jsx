@@ -392,15 +392,47 @@ export default function BookingSchedule({
   const [isLive,       setIsLive]       = useState(false);   // realtime status
   const [newApptToast, setNewApptToast] = useState(null);    // {appt} | null
 
-  const [calView,        setCalView]        = useState("Day");
-  const [dayOffset,      setDayOffset]      = useState(0);
+  const [calView, setCalView] = useState("Day"); // "Day" | "Week" | "Month"
+  const [dayOffset, setDayOffset] = useState(0);
   const [search,         setSearch]         = useState("");
   const [activeAppt,     setActiveAppt]     = useState(null);
   const [activeDoctorId, setActiveDoctorId] = useState(selectedDoctorId ?? null);
   const [rescheduleAppt, setRescheduleAppt] = useState(null);
   const [currentMinutes, setCurrentMinutes] = useState(nowMinutes());
-  const [showAllDay,     setShowAllDay]      = useState(false);
+  const [showAllDay, setShowAllDay] = useState(false);
   const [showAllUpcoming, setShowAllUpcoming] = useState(false);
+  const [accessRequests, setAccessRequests] = useState({});
+  const [historyModalData, setHistoryModalData] = useState(null);
+  const [patientHistory, setPatientHistory] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) return;
+    let query = supabase.from("prescriptions")
+      .select("patient_phone, status, id, doctor_id")
+      .eq("diagnosis", "MEDICAL_ACCESS_REQUEST");
+    
+    if (activeDoctorId) {
+      query = query.eq("doctor_id", activeDoctorId);
+    }
+    
+    query.then(({data}) => {
+       if(data) {
+          const map = {};
+          // Map by patient_phone + doctor_id. Completed overrides active if both exist.
+          data.forEach(r => {
+             const key = `${r.patient_phone}_${r.doctor_id}`;
+             if (!map[key] || r.status === "completed") {
+                 map[key] = r;
+             }
+          });
+          setAccessRequests(map);
+       }
+    });
+  }, [supabase, activeDoctorId]);
+
+  /* ── UID Map (web_patients) ──────────────────────────────────────── */
+  const [uidMap, setUidMap] = useState({});
 
   // Keep a ref of current appt IDs so we can detect genuinely new ones
   const knownIdsRef = useRef(new Set());
@@ -409,6 +441,20 @@ export default function BookingSchedule({
     const timer = setInterval(() => setCurrentMinutes(nowMinutes()), 60000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!supabase) return;
+    supabase.from("web_patients").select("phone, email, uid").then(({ data: wpData }) => {
+      const map = {};
+      if (wpData) {
+        wpData.forEach(wp => {
+          if (wp.phone) map[wp.phone] = wp.uid;
+          if (wp.email) { map[wp.email] = wp.uid; map[`web_${wp.email}`] = wp.uid; }
+        });
+      }
+      setUidMap(map);
+    });
+  }, [supabase]);
 
   /* ─────────────────────────────────────────────────────────────────
    * REAL-TIME STRATEGY
@@ -706,6 +752,28 @@ export default function BookingSchedule({
     return "Consultation";
   }
 
+  async function handleRequestAccess(appt) {
+    if (!supabase) return;
+    const req = {
+      doctor_id: appt.doctor_id || activeDoctorId,
+      patient_phone: appt.phone,
+      patient_name: appt.name || "Unknown Patient",
+      diagnosis: "MEDICAL_ACCESS_REQUEST",
+      status: "active",
+      date: new Date().toISOString().split("T")[0]
+    };
+    const { data, error } = await supabase.from("prescriptions").insert([req]).select();
+    if (error) console.error("REQUEST ACCESS ERROR:", error);
+    if (!error) {
+      const inserted = data && data.length > 0 ? data[0] : req;
+      const key = `${appt.phone}_${req.doctor_id}`;
+      setAccessRequests(prev => ({...prev, [key]: inserted}));
+      showToast?.("Access Requested Successfully", "success");
+    } else {
+      showToast?.(error?.message || "Error requesting access", "error");
+    }
+  }
+
   async function handleApprove(appt) {
     setAppointments(prev => prev.map(a => a.id === appt.id ? { ...a, status:"booked" } : a));
     if (supabase) {
@@ -746,6 +814,30 @@ export default function BookingSchedule({
       doc?.name     || "",
       appt.hospital_id || "",
     );
+
+    // Send email notification to patient
+    if (appt.phone?.startsWith("web_")) {
+      const email = appt.phone.replace("web_", "");
+      try {
+        await fetch("/api/send-email", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            to: email,
+            subject: "Your Appointment has been Rescheduled",
+            html: `<h3>Appointment Update</h3>
+                   <p>Hello ${appt.name || "Patient"},</p>
+                   <p>Your appointment with Dr. ${doc?.name || "our clinic"} has been rescheduled to a new time.</p>
+                   <p><strong>New Time:</strong> ${newSlot.label}</p>
+                   <p><strong>Date:</strong> ${appt.date || ""}</p>
+                   <p>If you have any questions, please contact the clinic.</p>`
+          })
+        });
+      } catch (err) {
+        console.error("Failed to send reschedule email", err);
+      }
+    }
+
     if (ok) {
       showToast?.(`${appt.name} rescheduled to ${newSlot.label} — Patient notified ✓`, "success");
     } else {
@@ -1096,6 +1188,9 @@ export default function BookingSchedule({
                                       <span>📞 {appt.phone.replace(/^web_/, "")}</span>
                                     )
                                   )}
+                                  {uidMap[appt.phone] && (
+                                    <span style={{ color:"#10B981", fontWeight:800 }}>#{uidMap[appt.phone]}</span>
+                                  )}
                                   {appt.age && <span>🎂 Age {appt.age}</span>}
                                   {isCall && appt.meet_link && (
                                     <span style={{ color:"#3730A3", fontWeight:700, overflow:"hidden", textOverflow:"ellipsis", whiteSpace:"nowrap", maxWidth:180 }}>
@@ -1135,6 +1230,34 @@ export default function BookingSchedule({
                                       📋 Copy Link
                                     </button>
                                   )}
+                                  
+                                  {/* Medical Access Control */}
+                                  {(() => {
+                                    const reqKey = `${appt.phone}_${appt.doctor_id || activeDoctorId}`;
+                                    const reqStatus = accessRequests[reqKey]?.status;
+                                    
+                                    return (
+                                      <>
+                                        {!reqStatus && (
+                                          <button onClick={e => { e.stopPropagation(); handleRequestAccess(appt); }}
+                                            style={{ padding:"5px 11px", borderRadius:8, background:"#F8FAFC", color:"#64748B", border:"1px solid #E2E8F0", fontSize:11, fontWeight:700, fontFamily:"'Syne',sans-serif", cursor:"pointer", width: "100%", textAlign: "center", marginTop: 8 }}>
+                                            🔒 Request Access to History
+                                          </button>
+                                        )}
+                                        {reqStatus === "active" && (
+                                          <div style={{ padding:"5px 11px", borderRadius:8, background:"#FEF3C7", color:"#D97706", border:"1px solid #FDE68A", fontSize:11, fontWeight:700, fontFamily:"'Syne',sans-serif", width: "100%", textAlign: "center", marginTop: 8 }}>
+                                            ⏳ Access Requested (Pending)
+                                          </div>
+                                        )}
+                                        {reqStatus === "completed" && (
+                                          <button onClick={e => { e.stopPropagation(); setHistoryModalData({ phone: appt.phone, doctorId: appt.doctor_id || activeDoctorId }); }}
+                                            style={{ padding:"5px 11px", borderRadius:8, background:"#ECFDF5", color:"#059669", border:"1px solid #6EE7B7", fontSize:11, fontWeight:700, fontFamily:"'Syne',sans-serif", cursor:"pointer", width: "100%", textAlign: "center", marginTop: 8 }}>
+                                            🔓 View Full Medical History
+                                          </button>
+                                        )}
+                                      </>
+                                    );
+                                  })()}
                                 </div>
                               )}
                             </div>
@@ -1305,6 +1428,89 @@ export default function BookingSchedule({
           onClose={() => setNewApptToast(null)}
         />
       )}
+
+      {/* History Modal */}
+      {historyModalData && (
+        <div style={{ position:"fixed", top:0, left:0, right:0, bottom:0, background:"rgba(15,23,42,0.6)", zIndex:99999, display:"flex", alignItems:"center", justifyContent:"center", padding:20 }} onClick={() => setHistoryModalData(null)}>
+          <div className="scale-up" style={{ background:"white", width:"100%", maxWidth:600, borderRadius:24, padding:32, maxHeight:"90vh", overflowY:"auto", position:"relative" }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setHistoryModalData(null)} style={{ position:"absolute", top:20, right:20, background:"#F1F5F9", border:"none", width:36, height:36, borderRadius:"50%", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color: "#64748B" }}>✕</button>
+            <h2 style={{ margin:"0 0 24px 0", fontSize:24, fontWeight:800, color:"#0F172A", fontFamily:"'Syne',sans-serif" }}>Full Medical History</h2>
+            <PatientHistoryFetcher phone={historyModalData.phone} activeDoctorId={historyModalData.doctorId} />
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
+function PatientHistoryFetcher({ phone, activeDoctorId }) {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!phone || !activeDoctorId) return;
+    setLoading(true);
+    
+    // Fetch from our secure backend API to bypass RLS
+    fetch(`http://localhost:4000/doctor/patient-history?phone=${phone}&doctor_id=${activeDoctorId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.ok && data.history) {
+          setHistory(data.history);
+        } else {
+          console.error("Failed to fetch history:", data.error);
+        }
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error("Error fetching history:", err);
+        setLoading(false);
+      });
+  }, [phone, activeDoctorId]);
+
+  if (loading) return <div style={{ padding: 40, textAlign: "center", color: "#64748B" }}>Loading records...</div>;
+  if (history.length === 0) return <div style={{ padding: 40, textAlign: "center", color: "#64748B", background: "#F8FAFC", borderRadius: 16, border: "1px dashed #CBD5E1" }}>No past medical records found.</div>;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {history.map(record => (
+        <div key={record.id} style={{ background: "#F8FAFC", padding: 20, borderRadius: 16, border: "1px solid #E2E8F0" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0F172A" }}>{record.diagnosis || "Consultation"}</h4>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>{record.date}</span>
+          </div>
+          <p style={{ margin: "0 0 12px 0", fontSize: 13, color: "#64748B", fontWeight: 500 }}>Dr. {record.doctors?.name} · {record.doctors?.department}</p>
+          
+          {record.notes && (
+            <div style={{ marginBottom: 12, background: "white", padding: 12, borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, color: "#334155" }}>
+              <strong>Notes:</strong> {record.notes}
+            </div>
+          )}
+          
+          {record.medicines && record.medicines.length > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <strong style={{ fontSize: 13, color: "#0F172A" }}>Medicines:</strong>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                {record.medicines.map((m, i) => (
+                  <span key={i} style={{ background: "#EEF2FF", color: "#3730A3", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{m.name}</span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {record.tests && record.tests.length > 0 && (
+            <div>
+              <strong style={{ fontSize: 13, color: "#0F172A" }}>Lab Tests:</strong>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                {record.tests.map((t, i) => (
+                  <span key={i} style={{ background: "#FEF2F2", color: "#991B1B", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }

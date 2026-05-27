@@ -2,7 +2,8 @@
 import { useRouter } from "next/navigation";
 import {
   ArrowUpRight, Shield, Stethoscope, Clock, CheckCircle2,
-  Zap, Activity, Wifi, Bell, X, Lock, Mail, Eye, EyeOff, ArrowLeft, Building2
+  Zap, Activity, Wifi, Bell, X, Lock, Mail, Eye, EyeOff, ArrowLeft, Building2, FlaskConical, Pill, Network, Plus,
+  Search, ChevronRight, BookOpen, Terminal, Key, Database, Webhook, LayoutDashboard, LifeBuoy
 } from "lucide-react";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
@@ -17,26 +18,22 @@ const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );
 
-/* ─── OTP recipient — falls back to the typed login email if env var not set ── */
-
-
 /* ─── DESIGN TOKENS ─────────────────────────────────────────────────────────── */
 const T = {
-  primary:   "#0D3327",
-  accent:    "#1A5C44",
+  primary:   "#0F172A",
+  accent:    "#16A34A",
   highlight: "#22C55E",
-  light:     "#F0FDF4",
-  muted:     "#94A3B8",
-  border:    "rgba(20,61,48,0.10)",
-  glass:     "rgba(255,255,255,0.72)",
+  light:     "#F8FAFC",
+  muted:     "#64748B",
+  border:    "rgba(0,0,0,0.06)",
+  glass:     "rgba(255,255,255,0.85)",
   text:      "#0F172A",
-  sub:       "#64748B",
+  sub:       "#475569",
 };
 
 /* ─── FEATURE PILLS ─────────────────────────────────────────────────────────── */
 const FEATURES = [
   { icon: "💬", label: "Website Bot" },
-  { icon: "🔐", label: "Supabase Auth" },
   { icon: "⚡", label: "Real-time Sync" },
   { icon: "🏨", label: "Multi-Hospital" },
 ];
@@ -86,6 +83,30 @@ const CARDS = [
     color: "#143D30",
     accentColor: "rgba(20,61,48,0.08)",
   },
+  {
+    id: 4, num: "04",
+    title: "Laboratory",
+    desc: "Manage diagnostic tests, review sample pipelines, and update patient reports securely.",
+    icon: FlaskConical,
+    route: "/laboratory",
+    badge: "Lab",
+    requiresAuth: false,
+    bullets: ["Test management", "Sample tracking", "Report generation"],
+    color: "#143D30",
+    accentColor: "rgba(20,61,48,0.08)",
+  },
+  {
+    id: 5, num: "05",
+    title: "Pharmacy",
+    desc: "Monitor inventory, process prescriptions, and handle medication dispensaries effectively.",
+    icon: Pill,
+    route: "/pharmacy",
+    badge: "Pharmacy",
+    requiresAuth: false,
+    bullets: ["Inventory control", "Prescriptions", "Stock alerts"],
+    color: "#143D30",
+    accentColor: "rgba(20,61,48,0.08)",
+  },
 ];
 
 /* ─── TRUST ITEMS ────────────────────────────────────────────────────────────── */
@@ -94,6 +115,30 @@ const TRUST = [
   { icon: Bell,     label: "Instant Alerts",    sub: "Doctor + patient" },
   { icon: Wifi,     label: "Always-on Sync",    sub: "Multi-hospital ready" },
   { icon: Zap,      label: "Sub-2s Replies",    sub: "Optimised pipeline" },
+];
+
+/* ─── DOCS DATA ──────────────────────────────────────────────────────────────── */
+const DOC_SECTIONS = [
+  { icon: BookOpen,      label: "Getting Started",     sub: "Setup, env vars, Supabase config",      href: "#", tag: "Guide" },
+  { icon: Key,           label: "Auth & OTP Flow",      sub: "Admin login, OTP verification steps",    href: "#", tag: "Security" },
+  { icon: Activity,      label: "Bot Configuration",    sub: "Custom question flows per doctor",       href: "#", tag: "Bot" },
+  { icon: Building2,     label: "Multi-Hospital Setup", sub: "Register & manage facilities",           href: "#", tag: "Infra" },
+  { icon: Pill,          label: "Pharmacy Module",      sub: "Inventory, prescriptions, stock alerts", href: "#", tag: "Module" },
+  { icon: FlaskConical,  label: "Lab Integration",      sub: "Sample tracking & report upload",        href: "#", tag: "Module" },
+  { icon: Webhook,       label: "Real-time Sync",       sub: "Supabase subscriptions & webhooks",      href: "#", tag: "Infra" },
+  { icon: Database,      label: "API Reference",        sub: "RPC functions & REST endpoints",         href: "#", tag: "Dev" },
+];
+
+/* ─── COMMAND ITEMS ─────────────────────────────────────────────────────────── */
+const CMD_ITEMS = [
+  { icon: Shield,       label: "Open Admin Portal",     sub: "Requires authentication",   route: null,          badge: "Auth",    requiresAuth: true },
+  { icon: Stethoscope,  label: "Open Doctor Portal",    sub: "Manage schedule & bot",     route: "/doctor",     badge: "Portal",  requiresAuth: false },
+  { icon: Building2,    label: "Browse Hospitals",      sub: "View all registered facilities", route: "/hospitals",  badge: "Public",  requiresAuth: false },
+  { icon: FlaskConical, label: "Laboratory Dashboard",  sub: "Tests & sample tracking",   route: "/laboratory", badge: "Lab",     requiresAuth: false },
+  { icon: Pill,         label: "Pharmacy Dashboard",    sub: "Inventory & prescriptions", route: "/pharmacy",   badge: "Pharmacy",requiresAuth: false },
+  { icon: LayoutDashboard, label: "System Overview",   sub: "Stats, uptime, health",      route: "#",           badge: "Info",    requiresAuth: false },
+  { icon: Terminal,     label: "API Reference",         sub: "Endpoints & RPC docs",       route: "#",           badge: "Dev",     requiresAuth: false },
+  { icon: LifeBuoy,     label: "Support",               sub: "Contact the Cura team",      route: "#",           badge: "Help",    requiresAuth: false },
 ];
 
 /* ─── SPINNER ────────────────────────────────────────────────────────────────── */
@@ -111,13 +156,13 @@ function Spinner() {
 
 /* ─── 3D MAGNETIC CARD ──────────────────────────────────────────────────────── */
 function MagneticCard({ children, style = {}, onClick, onMouseEnter, onMouseLeave }) {
-  const ref = useRef(null);
-  const mx  = useMotionValue(0);
-  const my  = useMotionValue(0);
-  const sx  = useSpring(mx, { stiffness: 200, damping: 32 });
-  const sy  = useSpring(my, { stiffness: 200, damping: 32 });
-  const rx  = useTransform(sy, [-0.5, 0.5], [6, -6]);
-  const ry  = useTransform(sx, [-0.5, 0.5], [-6, 6]);
+  const ref  = useRef(null);
+  const mx   = useMotionValue(0);
+  const my   = useMotionValue(0);
+  const sx   = useSpring(mx, { stiffness: 200, damping: 32 });
+  const sy   = useSpring(my, { stiffness: 200, damping: 32 });
+  const rx   = useTransform(sy, [-0.5, 0.5], [6, -6]);
+  const ry   = useTransform(sx, [-0.5, 0.5], [-6, 6]);
 
   const onMove = useCallback((e) => {
     const r = ref.current?.getBoundingClientRect();
@@ -149,7 +194,7 @@ function MagneticCard({ children, style = {}, onClick, onMouseEnter, onMouseLeav
 function Counter({ target, suffix, decimals = 0 }) {
   const [v, setV] = useState(0);
   useEffect(() => {
-    if (target === "∞") return; // guard before any numeric ops
+    if (target === "∞") return;
     const n = parseFloat(target);
     if (isNaN(n)) return;
     const step = n / 48;
@@ -258,7 +303,7 @@ function OTPInput({ value, onChange, disabled }) {
 
 /* ─── ADMIN AUTH MODAL ──────────────────────────────────────────────────────── */
 function AdminAuthModal({ onClose, onSuccess }) {
-  const [step,     setStep]     = useState("login"); // "login" | "otp" | "success"
+  const [step,     setStep]     = useState("login");
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
@@ -267,14 +312,12 @@ function AdminAuthModal({ onClose, onSuccess }) {
   const [loading,  setLoading]  = useState(false);
   const [countdown,setCountdown]= useState(0);
 
-  /* Countdown timer */
   useEffect(() => {
     if (countdown <= 0) return;
     const t = setTimeout(() => setCountdown(c => c - 1), 1000);
     return () => clearTimeout(t);
   }, [countdown]);
 
-  /* Auto-verify when 6 digits entered */
   useEffect(() => {
     if (otp.length === 6 && step === "otp" && !loading) {
       handleVerifyOTP();
@@ -282,12 +325,10 @@ function AdminAuthModal({ onClose, onSuccess }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otp]);
 
-  /* ── Generate OTP ── */
   function genOTP() {
     return Math.floor(100000 + Math.random() * 900000).toString();
   }
 
-  /* ── Step 1: Verify credentials ── */
   async function handleLogin(e) {
     e.preventDefault();
     setError(null);
@@ -297,17 +338,14 @@ function AdminAuthModal({ onClose, onSuccess }) {
     }
     setLoading(true);
     try {
-      /* Call the RPC function to verify against admin_users table */
       const { data: isValid, error: rpcErr } = await supabase.rpc("verify_admin_login", {
         p_email:    email.trim().toLowerCase(),
         p_password: password,
-        
       });
 
       if (rpcErr) throw new Error("Server error. Please try again.");
       if (!isValid) throw new Error("Invalid email or password.");
 
-      /* Generate OTP and store in DB */
       const newOTP = genOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
@@ -319,10 +357,9 @@ function AdminAuthModal({ onClose, onSuccess }) {
       });
       if (insertErr) throw new Error("Could not create OTP. Try again.");
 
-      /* Send OTP email via local API route */
       const otpRecipient = email.trim().toLowerCase();
       if (!otpRecipient) throw new Error("Please enter a valid email.");
-      
+
       const res = await fetch("/api/send-otp-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -338,7 +375,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
     setLoading(false);
   }
 
-  /* ── Step 2: Verify OTP ── */
   async function handleVerifyOTP() {
     if (otp.length !== 6) { setError("Enter all 6 digits."); return; }
     setError(null);
@@ -358,7 +394,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
       if (fetchErr) throw new Error("Verification error. Try again.");
       if (!data) throw new Error("Invalid or expired OTP.");
 
-      /* Mark OTP as used */
       await supabase.from("otp_verifications").update({ used: true }).eq("id", data.id);
 
       sessionStorage.setItem("admin_authenticated", "true");
@@ -371,7 +406,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
     setLoading(false);
   }
 
-  /* ── Resend OTP ── */
   async function handleResend() {
     if (countdown > 0) return;
     setError(null);
@@ -433,7 +467,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
           border: "1px solid rgba(255,255,255,0.95)",
         }}
       >
-        {/* ── Header ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 28 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             {isOTP && !isSuccess && (
@@ -471,8 +504,8 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 {isSuccess
                   ? "Redirecting to admin portal..."
                   : isOTP
-                   ? "Code sent to your registered email"
-                    : "Secure credentials required"}
+                  ? "Code sent to your registered email"
+                  : "Secure credentials required"}
               </p>
             </div>
           </div>
@@ -494,7 +527,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
           )}
         </div>
 
-        {/* ── Error ── */}
         <AnimatePresence>
           {error && (
             <motion.div
@@ -514,7 +546,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
           )}
         </AnimatePresence>
 
-        {/* ════ LOGIN STEP ════════════════════════════════════════════════════ */}
         <AnimatePresence mode="wait">
           {step === "login" && (
             <motion.form
@@ -526,7 +557,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
               onSubmit={handleLogin}
               style={{ display: "flex", flexDirection: "column", gap: 16 }}
             >
-              {/* Email */}
               <div>
                 <label style={{ display: "block", fontSize: 10, fontWeight: 900, fontFamily: "'Syne',sans-serif", letterSpacing: "0.22em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 8 }}>
                   Email Address
@@ -553,7 +583,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 </div>
               </div>
 
-              {/* Password */}
               <div>
                 <label style={{ display: "block", fontSize: 10, fontWeight: 900, fontFamily: "'Syne',sans-serif", letterSpacing: "0.22em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 8 }}>
                   Password
@@ -587,7 +616,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 </div>
               </div>
 
-              {/* OTP notice */}
               <div style={{
                 padding: "11px 14px", borderRadius: 12,
                 background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.15)",
@@ -620,7 +648,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
             </motion.form>
           )}
 
-          {/* ════ OTP STEP ══════════════════════════════════════════════════════ */}
           {step === "otp" && (
             <motion.div
               key="otp"
@@ -630,7 +657,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
               transition={{ type: "spring", stiffness: 360, damping: 30 }}
               style={{ display: "flex", flexDirection: "column", gap: 20 }}
             >
-              {/* Info box */}
               <div style={{
                 padding: "14px 16px", borderRadius: 14,
                 background: "rgba(13,51,39,0.03)", border: "1px solid rgba(13,51,39,0.08)",
@@ -645,10 +671,8 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 </p>
               </div>
 
-              {/* OTP boxes */}
               <OTPInput value={otp} onChange={setOtp} disabled={loading} />
 
-              {/* Loading state */}
               {loading && (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: T.accent, fontSize: 13, fontWeight: 600 }}>
                   <div style={{ width: 14, height: 14, borderRadius: "50%", border: "2px solid rgba(13,51,39,0.15)", borderTopColor: T.accent, animation: "spin 0.8s linear infinite" }} />
@@ -656,7 +680,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 </div>
               )}
 
-              {/* Manual verify button (fallback) */}
               {!loading && otp.length === 6 && (
                 <motion.button
                   onClick={handleVerifyOTP}
@@ -679,7 +702,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 </motion.button>
               )}
 
-              {/* Resend */}
               <div style={{ textAlign: "center" }}>
                 <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
                   Didn&apos;t receive it?{" "}
@@ -702,7 +724,6 @@ function AdminAuthModal({ onClose, onSuccess }) {
             </motion.div>
           )}
 
-          {/* ════ SUCCESS ══════════════════════════════════════════════════════ */}
           {step === "success" && (
             <motion.div
               key="success"
@@ -737,6 +758,316 @@ function AdminAuthModal({ onClose, onSuccess }) {
   );
 }
 
+/* ─── DOCS DROPDOWN ─────────────────────────────────────────────────────────── */
+function DocsDropdown({ open, onClose }) {
+  const BADGE_COLORS = {
+    Guide:    { bg: "rgba(59,130,246,0.08)",  color: "#2563EB" },
+    Security: { bg: "rgba(239,68,68,0.08)",   color: "#DC2626" },
+    Bot:      { bg: "rgba(168,85,247,0.08)",  color: "#7C3AED" },
+    Infra:    { bg: "rgba(234,179,8,0.08)",   color: "#CA8A04" },
+    Module:   { bg: "rgba(34,197,94,0.08)",   color: "#16A34A" },
+    Dev:      { bg: "rgba(20,61,48,0.08)",    color: "#0F172A" },
+  };
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <>
+          {/* Backdrop */}
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose}
+            style={{ position: "fixed", inset: 0, zIndex: 110 }}
+          />
+          {/* Panel */}
+          <motion.div
+            initial={{ opacity: 0, y: -10, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0,   scale: 1 }}
+            exit={{   opacity: 0, y: -10,  scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 420, damping: 30 }}
+            style={{
+              position: "absolute", top: "calc(100% + 16px)", right: 0,
+              width: 460, background: "white", borderRadius: 22,
+              boxShadow: "0 24px 64px rgba(0,0,0,0.11), 0 1px 2px rgba(0,0,0,0.04)",
+              border: "1px solid rgba(0,0,0,0.06)", zIndex: 120, overflow: "hidden",
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              padding: "16px 20px 14px",
+              borderBottom: "1px solid rgba(0,0,0,0.05)",
+              display: "flex", justifyContent: "space-between", alignItems: "center",
+              background: "linear-gradient(135deg, rgba(20,61,48,0.02), rgba(34,197,94,0.03))",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 10, background: `linear-gradient(135deg, ${T.primary}, #226650)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <BookOpen size={14} color="white" />
+                </div>
+                <div>
+                  <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 14, color: T.text, margin: 0, letterSpacing: "-0.02em" }}>Documentation</p>
+                  <p style={{ fontSize: 10, color: T.muted, margin: "2px 0 0", fontWeight: 600 }}>Cura Healthcare OS — v2.4.0</p>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.18em", color: T.accent, fontFamily: "'Syne',sans-serif", background: "rgba(34,197,94,0.08)", padding: "4px 10px", borderRadius: 999, border: "1px solid rgba(34,197,94,0.12)" }}>
+                  Live Docs
+                </span>
+                <motion.button whileHover={{ scale: 1.1, rotate: 90 }} whileTap={{ scale: 0.9 }} onClick={onClose}
+                  style={{ width: 28, height: 28, borderRadius: 999, background: "rgba(0,0,0,0.04)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.muted }}>
+                  <X size={12} />
+                </motion.button>
+              </div>
+            </div>
+
+            {/* Grid */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" }}>
+              {DOC_SECTIONS.map((s, i) => {
+                const Icon = s.icon;
+                const badge = BADGE_COLORS[s.tag] || BADGE_COLORS.Dev;
+                const isRight = i % 2 !== 0;
+                const isLastRow = i >= DOC_SECTIONS.length - 2;
+                return (
+                  <motion.a
+                    key={s.label} href={s.href}
+                    whileHover={{ background: "rgba(20,61,48,0.025)" }}
+                    style={{
+                      display: "flex", alignItems: "flex-start", gap: 10,
+                      padding: "14px 18px", textDecoration: "none",
+                      borderRight: !isRight ? "1px solid rgba(0,0,0,0.04)" : "none",
+                      borderBottom: !isLastRow ? "1px solid rgba(0,0,0,0.04)" : "none",
+                      transition: "background 0.15s", cursor: "pointer",
+                    }}
+                  >
+                    <div style={{ width: 30, height: 30, borderRadius: 9, background: badge.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                      <Icon size={13} color={badge.color} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
+                        <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 12, color: T.text, margin: 0, letterSpacing: "-0.01em" }}>{s.label}</p>
+                        <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", color: badge.color, background: badge.bg, padding: "2px 6px", borderRadius: 999, flexShrink: 0 }}>{s.tag}</span>
+                      </div>
+                      <p style={{ fontSize: 10, color: T.muted, margin: "3px 0 0", fontWeight: 500, lineHeight: 1.4 }}>{s.sub}</p>
+                    </div>
+                  </motion.a>
+                );
+              })}
+            </div>
+
+            {/* Footer */}
+            <div style={{
+              padding: "12px 20px", borderTop: "1px solid rgba(0,0,0,0.05)",
+              background: "rgba(248,250,252,0.9)",
+              display: "flex", alignItems: "center", justifyContent: "space-between",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <LifeBuoy size={12} color={T.muted} />
+                <span style={{ fontSize: 11, color: T.muted, fontWeight: 500 }}>Need help? Open a support ticket.</span>
+              </div>
+              <motion.a href="#" whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }}
+                style={{
+                  background: T.primary, color: "white", border: "none", borderRadius: 999,
+                  padding: "7px 16px", fontSize: 10, fontWeight: 800,
+                  letterSpacing: "0.1em", textTransform: "uppercase",
+                  fontFamily: "'Syne',sans-serif", cursor: "pointer",
+                  textDecoration: "none", display: "flex", alignItems: "center", gap: 5,
+                }}>
+                Contact <ArrowUpRight size={10} />
+              </motion.a>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
+  );
+}
+
+/* ─── COMMAND CENTER MODAL ───────────────────────────────────────────────────── */
+function CommandCenterModal({ onClose, onAdminClick }) {
+  const router = useRouter();
+  const [query, setQuery] = useState("");
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    // Focus search on open
+    setTimeout(() => inputRef.current?.focus(), 80);
+    // Close on Escape
+    const handler = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [onClose]);
+
+  const filtered = CMD_ITEMS.filter(item =>
+    item.label.toLowerCase().includes(query.toLowerCase()) ||
+    item.sub.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const BADGE_COLORS = {
+    Auth:    { bg: "rgba(239,68,68,0.08)",   color: "#DC2626" },
+    Portal:  { bg: "rgba(59,130,246,0.08)",  color: "#2563EB" },
+    Public:  { bg: "rgba(34,197,94,0.08)",   color: "#16A34A" },
+    Lab:     { bg: "rgba(168,85,247,0.08)",  color: "#7C3AED" },
+    Pharmacy:{ bg: "rgba(234,179,8,0.08)",   color: "#CA8A04" },
+    Info:    { bg: "rgba(20,61,48,0.06)",    color: "#0F172A" },
+    Dev:     { bg: "rgba(20,61,48,0.08)",    color: "#0F172A" },
+    Help:    { bg: "rgba(34,197,94,0.08)",   color: "#16A34A" },
+  };
+
+  function handleItemClick(item) {
+    if (item.requiresAuth) {
+      onClose();
+      onAdminClick();
+    } else if (item.route && item.route !== "#") {
+      router.push(item.route);
+      onClose();
+    }
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+      style={{
+        position: "fixed", inset: 0,
+        background: "rgba(10,34,24,0.6)",
+        backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+        display: "flex", alignItems: "flex-start", justifyContent: "center",
+        zIndex: 200, padding: "10vh 1.5rem 1.5rem",
+      }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: -24, scale: 0.95 }}
+        animate={{ opacity: 1, y: 0,   scale: 1 }}
+        exit={{   opacity: 0, y: -16,  scale: 0.97 }}
+        transition={{ type: "spring", stiffness: 380, damping: 28 }}
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          width: "100%", maxWidth: 560,
+          background: "rgba(255,255,255,0.99)",
+          borderRadius: 24,
+          boxShadow: "0 40px 100px rgba(0,0,0,0.2), 0 1px 2px rgba(0,0,0,0.04)",
+          border: "1px solid rgba(0,0,0,0.06)",
+          overflow: "hidden",
+        }}
+      >
+        {/* Search bar */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: 12,
+          padding: "16px 20px",
+          borderBottom: "1px solid rgba(0,0,0,0.06)",
+        }}>
+          <div style={{ width: 36, height: 36, borderRadius: 11, background: `linear-gradient(135deg, ${T.primary}, #226650)`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <Terminal size={15} color="white" />
+          </div>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 900, fontSize: 13, color: T.text, margin: 0, letterSpacing: "-0.01em" }}>Command Center</p>
+            <p style={{ fontSize: 10, color: T.muted, margin: "1px 0 0", fontWeight: 500 }}>Navigate anywhere in the Cura ecosystem</p>
+          </div>
+          <motion.button
+            onClick={onClose}
+            whileHover={{ scale: 1.1, rotate: 90 }} whileTap={{ scale: 0.9 }}
+            style={{ width: 32, height: 32, borderRadius: 999, background: "rgba(0,0,0,0.04)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: T.muted, flexShrink: 0 }}
+          >
+            <X size={13} />
+          </motion.button>
+        </div>
+
+        {/* Search input */}
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+          <div style={{ position: "relative" }}>
+            <Search size={14} style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "#CBD5E1", pointerEvents: "none" }} />
+            <input
+              ref={inputRef}
+              type="text"
+              placeholder="Search portals, modules, docs..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{
+                width: "100%", paddingLeft: 42, paddingRight: 16,
+                paddingTop: 11, paddingBottom: 11,
+                background: "#F8FAFC", border: "1.5px solid #E2E8F0",
+                borderRadius: 12, fontSize: 13, fontWeight: 500, color: T.text,
+                outline: "none", transition: "all 0.2s", boxSizing: "border-box",
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+              }}
+              onFocus={(e) => { e.target.style.borderColor = T.primary; e.target.style.background = "white"; e.target.style.boxShadow = "0 0 0 4px rgba(13,51,39,0.07)"; }}
+              onBlur={(e) => { e.target.style.borderColor = "#E2E8F0"; e.target.style.background = "#F8FAFC"; e.target.style.boxShadow = "none"; }}
+            />
+          </div>
+        </div>
+
+        {/* Results */}
+        <div style={{ maxHeight: 360, overflowY: "auto", padding: "8px 10px" }}>
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "32px 0", color: T.muted }}>
+              <Search size={24} style={{ margin: "0 auto 10px", opacity: 0.3, display: "block" }} />
+              <p style={{ fontSize: 13, fontWeight: 600, margin: 0 }}>No results for "{query}"</p>
+            </div>
+          ) : (
+            <AnimatePresence>
+              {filtered.map((item, i) => {
+                const Icon = item.icon;
+                const badge = BADGE_COLORS[item.badge] || BADGE_COLORS.Dev;
+                return (
+                  <motion.div
+                    key={item.label}
+                    initial={{ opacity: 0, y: 6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: i * 0.03 }}
+                    onClick={() => handleItemClick(item)}
+                    whileHover={{ background: "rgba(20,61,48,0.03)" }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 12,
+                      padding: "11px 12px", borderRadius: 14,
+                      cursor: "pointer", transition: "background 0.15s",
+                      marginBottom: 2,
+                    }}
+                  >
+                    <div style={{ width: 38, height: 38, borderRadius: 11, background: badge.bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      <Icon size={16} color={badge.color} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <p style={{ fontFamily: "'Syne',sans-serif", fontWeight: 800, fontSize: 13, color: T.text, margin: 0 }}>{item.label}</p>
+                        <span style={{ fontSize: 8, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: badge.color, background: badge.bg, padding: "2px 7px", borderRadius: 999, flexShrink: 0 }}>{item.badge}</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: T.muted, margin: "2px 0 0", fontWeight: 500 }}>{item.sub}</p>
+                    </div>
+                    <ChevronRight size={14} color="#CBD5E1" style={{ flexShrink: 0 }} />
+                  </motion.div>
+                );
+              })}
+            </AnimatePresence>
+          )}
+        </div>
+
+        {/* Footer hint */}
+        <div style={{
+          padding: "10px 20px", borderTop: "1px solid rgba(0,0,0,0.05)",
+          background: "rgba(248,250,252,0.9)",
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+            {[["↵", "Select"], ["↑↓", "Navigate"], ["Esc", "Close"]].map(([key, label]) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <span style={{
+                  fontFamily: "'Syne',sans-serif", fontSize: 9, fontWeight: 800,
+                  background: "white", border: "1px solid rgba(0,0,0,0.1)",
+                  borderRadius: 6, padding: "2px 7px", color: T.sub,
+                  boxShadow: "0 1px 2px rgba(0,0,0,0.06)",
+                }}>{key}</span>
+                <span style={{ fontSize: 10, color: T.muted, fontWeight: 500 }}>{label}</span>
+              </div>
+            ))}
+          </div>
+          <span style={{ fontSize: 10, color: T.muted, fontWeight: 600 }}>{filtered.length} results</span>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 /* ─── MAIN PAGE ─────────────────────────────────────────────────────────────── */
 export default function Home() {
   const router  = useRouter();
@@ -744,15 +1075,39 @@ export default function Home() {
   const [mounted,       setMounted]       = useState(false);
   const [hovered,       setHovered]       = useState(null);
   const [showAdminAuth, setShowAdminAuth] = useState(false);
+  const [showDocs,      setShowDocs]      = useState(false);
+  const [showCommand,   setShowCommand]   = useState(false);
+  const docsRef = useRef(null);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true);
     const tick = () =>
       setTime(new Date().toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }));
     tick();
     const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
+
+    // Close docs dropdown on outside click
+    const handleClick = (e) => {
+      if (docsRef.current && !docsRef.current.contains(e.target)) {
+        setShowDocs(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+
+    // Global keyboard shortcut: Cmd/Ctrl+K opens Command Center
+    const handleKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowCommand(true);
+      }
+    };
+    window.addEventListener("keydown", handleKey);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener("mousedown", handleClick);
+      window.removeEventListener("keydown", handleKey);
+    };
   }, []);
 
   function handleCardClick(card) {
@@ -771,19 +1126,28 @@ export default function Home() {
   return (
     <div style={{
       minHeight: "100vh",
-      background: "linear-gradient(160deg, #F4F8F5 0%, #FAFDF9 40%, #F2F7F3 100%)",
+      background: "#FAFAFA",
       fontFamily: "'Plus Jakarta Sans', sans-serif",
       overflowX: "hidden",
       position: "relative",
     }}>
       <NoiseBg />
 
-      {/* Admin Auth Modal */}
+      {/* Modals */}
       <AnimatePresence>
         {showAdminAuth && (
           <AdminAuthModal
             onClose={() => setShowAdminAuth(false)}
             onSuccess={handleAdminAuthSuccess}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showCommand && (
+          <CommandCenterModal
+            onClose={() => setShowCommand(false)}
+            onAdminClick={() => setShowAdminAuth(true)}
           />
         )}
       </AnimatePresence>
@@ -821,44 +1185,43 @@ export default function Home() {
         style={{
           position: "sticky", top: 0, zIndex: 100,
           display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "0 3rem", height: 72,
-          background: "rgba(244,248,245,0.96)",
-          backdropFilter: "blur(48px) saturate(2)",
-          WebkitBackdropFilter: "blur(48px) saturate(2)",
-          borderBottom: "1px solid rgba(20,61,48,0.08)",
-          boxShadow: "0 1px 0 rgba(255,255,255,0.9), 0 4px 32px rgba(13,51,39,0.05)",
+          padding: "0 3rem", height: 76,
+          background: "rgba(250,250,250,0.85)",
+          backdropFilter: "blur(24px) saturate(1.2)",
+          WebkitBackdropFilter: "blur(24px) saturate(1.2)",
+          borderBottom: "1px solid rgba(0,0,0,0.04)",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <motion.div
             whileHover={{ scale: 1.05 }}
             transition={{ type: "spring", stiffness: 400, damping: 20 }}
-            style={{ width: 40, height: 40, borderRadius: 12, overflow: "hidden",
-              boxShadow: "0 2px 12px rgba(13,51,39,0.20), 0 1px 0 rgba(255,255,255,0.6) inset" }}
+            style={{ width: 36, height: 36, borderRadius: 10, overflow: "hidden",
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08), 0 1px 0 rgba(255,255,255,0.8) inset" }}
           >
             <img src="/logo.jpeg" alt="Cura" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </motion.div>
           <div>
-            <p style={{ fontWeight: 800, fontSize: 17, color: T.text, lineHeight: 1, letterSpacing: "-0.04em", fontFamily: "'Syne', sans-serif" }}>Cura</p>
-            <p style={{ fontSize: 9, letterSpacing: "0.28em", color: T.muted, fontWeight: 700, textTransform: "uppercase", marginTop: 2 }}>Healthcare OS</p>
+            <p style={{ fontWeight: 800, fontSize: 16, color: T.text, lineHeight: 1, letterSpacing: "-0.02em", fontFamily: "'Syne', sans-serif" }}>Cura</p>
+            <p style={{ fontSize: 9, letterSpacing: "0.2em", color: T.muted, fontWeight: 700, textTransform: "uppercase", marginTop: 2 }}>Healthcare OS</p>
           </div>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            style={{ display: "flex", alignItems: "center", gap: 7, padding: "7px 16px", borderRadius: 999,
-              background: "rgba(34,197,94,0.07)", border: "1px solid rgba(34,197,94,0.18)" }}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 14px", borderRadius: 999,
+              background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.12)" }}
           >
             <motion.span
               animate={{ opacity: [1, 0.2, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
-              style={{ width: 7, height: 7, borderRadius: "50%", background: "#22C55E", flexShrink: 0,
-                boxShadow: "0 0 0 2px rgba(34,197,94,0.2)" }}
+              style={{ width: 6, height: 6, borderRadius: "50%", background: "#22C55E", flexShrink: 0,
+                boxShadow: "0 0 0 2px rgba(34,197,94,0.15)" }}
             />
-            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.12em", color: "#16A34A", textTransform: "uppercase" }}>Live</span>
+            <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.1em", color: "#16A34A", textTransform: "uppercase" }}>System Live</span>
           </motion.div>
 
           {mounted && (
@@ -866,45 +1229,94 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999,
-                background: "rgba(255,255,255,0.85)", border: "1px solid rgba(20,61,48,0.08)",
-                boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}
+              style={{ display: "flex", alignItems: "center", gap: 6, color: T.muted }}
             >
-              <Clock size={11} style={{ color: T.muted }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "#475569", letterSpacing: "0.02em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{time}</span>
+              <Clock size={12} />
+              <span style={{ fontSize: 12, fontWeight: 500, letterSpacing: "0.01em", fontFamily: "'Plus Jakarta Sans', sans-serif" }}>{time}</span>
             </motion.div>
           )}
 
+          <div style={{ width: 1, height: 16, background: "rgba(0,0,0,0.08)", margin: "0 4px" }} />
 
+          {/* Documentation — with dropdown */}
+          <div ref={docsRef} style={{ position: "relative" }}>
+            <motion.button
+              onClick={() => setShowDocs(s => !s)}
+              whileHover={{ color: T.accent }}
+              style={{
+                background: "none", border: "none", cursor: "pointer",
+                fontSize: 13, fontWeight: 600,
+                color: showDocs ? T.accent : T.sub,
+                display: "flex", alignItems: "center", gap: 5,
+                fontFamily: "'Plus Jakarta Sans', sans-serif",
+                padding: "4px 2px",
+                transition: "color 0.2s",
+              }}
+            >
+              <BookOpen size={13} />
+              Documentation
+              <motion.span
+                animate={{ rotate: showDocs ? 180 : 0 }}
+                transition={{ duration: 0.2 }}
+                style={{ display: "flex" }}
+              >
+                <ChevronRight size={11} style={{ transform: "rotate(90deg)" }} />
+              </motion.span>
+            </motion.button>
+            <DocsDropdown open={showDocs} onClose={() => setShowDocs(false)} />
+          </div>
+
+          {/* Command Center button */}
+          <motion.button
+            onClick={() => setShowCommand(true)}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            style={{
+              background: T.primary, color: "white", border: "none", borderRadius: 999,
+              padding: "10px 20px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em",
+              cursor: "pointer", boxShadow: "0 4px 12px rgba(15, 23, 42, 0.15)",
+              display: "flex", alignItems: "center", gap: 7,
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+            }}
+          >
+            <Terminal size={12} />
+            Command Center
+            <span style={{
+              fontSize: 9, fontWeight: 800, letterSpacing: "0.05em",
+              background: "rgba(255,255,255,0.15)", borderRadius: 5,
+              padding: "2px 6px", fontFamily: "'Syne',sans-serif",
+            }}>⌘K</span>
+          </motion.button>
         </div>
       </motion.nav>
 
       {/* ── HERO ── */}
       <motion.section
-        style={{ position: "relative", zIndex: 1, padding: "100px 3rem 80px", maxWidth: 1200, margin: "0 auto" }}
+        style={{ position: "relative", zIndex: 1, padding: "80px 3rem 60px", maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
-        <motion.div variants={stagger} initial="hidden" animate="show">
+        <motion.div variants={stagger} initial="hidden" animate="show" style={{ flex: 1, maxWidth: 600 }}>
           <motion.div variants={slide} style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 32 }}>
             <div style={{ width: 32, height: 1.5, background: "linear-gradient(90deg, transparent, rgba(20,61,48,0.3))", borderRadius: 1 }}/>
-            <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", color: T.muted, fontFamily: "'Syne', sans-serif" }}>
-              A Three-Part Command Center
+            <span style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.25em", color: T.accent, fontFamily: "'Syne', sans-serif" }}>
+              The Three-Part Command Center
             </span>
           </motion.div>
 
           <motion.h1
             variants={slide}
             style={{
-              fontWeight: 800, fontSize: "clamp(48px, 7vw, 84px)",
-              color: T.text, lineHeight: 1.0, letterSpacing: "-0.04em",
-              marginBottom: 28, maxWidth: 860,
+              fontWeight: 800, fontSize: "clamp(48px, 6vw, 76px)",
+              color: T.text, lineHeight: 1.1, letterSpacing: "-0.04em",
+              marginBottom: 24,
               fontFamily: "'Syne', sans-serif",
             }}
           >
             The clinic that{" "}
+            <br />
             <span style={{
-              backgroundImage: "linear-gradient(135deg, #22C55E 0%, #16A34A 100%)",
+              backgroundImage: "linear-gradient(135deg, #16A34A 0%, #22C55E 100%)",
               WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent",
-              backgroundClip: "text", fontStyle: "italic",
+              backgroundClip: "text", fontStyle: "italic", fontWeight: 600
             }}>
               answers itself.
             </span>
@@ -912,55 +1324,83 @@ export default function Home() {
 
           <motion.p
             variants={slide}
-            style={{ color: "#64748B", fontSize: 19, lineHeight: 1.75, maxWidth: 560, fontWeight: 400, marginBottom: 32 }}
+            style={{ color: T.sub, fontSize: 17, lineHeight: 1.6, maxWidth: 480, fontWeight: 500, marginBottom: 40 }}
           >
-            Cura connects a master admin console and specialist dashboards into one calm ecosystem — scheduling, approvals, and clinic data stay in sync via automated bot interactions.
+            A unified healthcare ecosystem connecting admin consoles and specialist dashboards via automated real-time interactions.
           </motion.p>
 
-          <motion.div variants={stagger} style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 48 }}>
+          <motion.div variants={stagger} style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>
             {FEATURES.map((f) => (
               <motion.div
                 key={f.label}
                 variants={slide}
-                whileHover={{ scale: 1.04, y: -2 }}
-                style={{
-                  display: "flex", alignItems: "center", gap: 9, padding: "9px 18px",
-                  borderRadius: 999,
-                  background: "rgba(255,255,255,0.85)",
-                  border: "1px solid rgba(20,61,48,0.08)",
-                  backdropFilter: "blur(12px)",
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-                  cursor: "default",
-                }}
+                style={{ display: "flex", alignItems: "center", gap: 8 }}
               >
-                <span style={{ fontSize: 14 }}>{f.icon}</span>
-                <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.18em", color: "#475569", fontFamily: "'Syne', sans-serif" }}>
+                <span style={{ fontSize: 13, filter: "grayscale(1) opacity(0.5)" }}>{f.icon}</span>
+                <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.15em", color: T.muted, fontFamily: "'Syne', sans-serif" }}>
                   {f.label}
                 </span>
               </motion.div>
             ))}
           </motion.div>
+        </motion.div>
 
-          <motion.div variants={stagger} style={{ display: "flex", gap: 56, flexWrap: "wrap", alignItems: "flex-end" }}>
-            {STATS.map((s, i) => (
-              <motion.div key={s.label} variants={slide} style={{ position: "relative" }}>
-                {i > 0 && (
-                  <div style={{
-                    position: "absolute", left: -30, top: "15%", height: "70%", width: 1,
-                    background: "linear-gradient(180deg, transparent, rgba(20,61,48,0.15), transparent)",
-                  }}/>
-                )}
-                <p style={{ fontWeight: 800, fontSize: 52, color: T.primary, lineHeight: 1, letterSpacing: "-0.05em", fontFamily: "'Syne', sans-serif" }}>
-                  {mounted ? <Counter target={s.value} suffix={s.suffix} decimals={s.decimals}/> : `${s.value}${s.suffix}`}
-                </p>
-                <p style={{ fontSize: 11, fontWeight: 700, color: T.muted, textTransform: "uppercase", letterSpacing: "0.28em", marginTop: 8, fontFamily: "'Syne', sans-serif" }}>
-                  {s.label}
-                </p>
-              </motion.div>
-            ))}
+        {/* Floating Diagram */}
+        <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3, duration: 0.8 }} style={{ position: "relative", flexShrink: 0, width: 440, height: 440, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", zIndex: 0 }}>
+            <motion.path
+              initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 1.5, delay: 0.5, ease: "easeInOut" }}
+              d="M 120 320 L 220 220 L 320 120"
+              stroke="rgba(0,0,0,0.15)" strokeWidth="1.5" strokeDasharray="4 4" fill="none"
+            />
+          </svg>
+
+          <motion.div
+            animate={{ y: [-8, 8, -8] }} transition={{ repeat: Infinity, duration: 5, ease: "easeInOut" }}
+            style={{ position: "absolute", bottom: 60, left: 60, width: 100, height: 100, background: "white", borderRadius: 24, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 16px 40px rgba(0,0,0,0.06)", border: "1px solid rgba(0,0,0,0.05)", zIndex: 1 }}
+          >
+            <Shield size={28} color={T.primary} />
+          </motion.div>
+
+          <motion.div
+            animate={{ y: [6, -6, 6] }} transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+            style={{ position: "absolute", width: 130, height: 130, background: "white", borderRadius: 32, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 20px 48px rgba(0,0,0,0.08)", border: "1px solid rgba(0,0,0,0.05)", zIndex: 2 }}
+          >
+            <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(0,0,0,0.04)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Network size={36} color={T.primary} />
+            </div>
+          </motion.div>
+
+          <motion.div
+            animate={{ y: [-6, 6, -6] }} transition={{ repeat: Infinity, duration: 4.5, ease: "easeInOut", delay: 1 }}
+            style={{ position: "absolute", top: 60, right: 60, width: 80, height: 80, background: "white", borderRadius: 20, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 12px 28px rgba(0,0,0,0.05)", border: "1px solid rgba(0,0,0,0.05)", zIndex: 1 }}
+          >
+            <Stethoscope size={24} color={T.accent} />
           </motion.div>
         </motion.div>
       </motion.section>
+
+      {/* ── STATS ── */}
+      <section style={{ maxWidth: 1200, margin: "0 auto", padding: "0 3rem 80px" }}>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}
+          style={{ display: "flex", alignItems: "stretch", background: "white", borderRadius: 24, boxShadow: "0 4px 24px rgba(0,0,0,0.03)", border: "1px solid rgba(0,0,0,0.05)", overflow: "hidden" }}
+        >
+          {STATS.map((s, i) => (
+            <div key={s.label} style={{ flex: 1, padding: "40px 48px", borderRight: i < STATS.length - 1 ? "1px solid rgba(0,0,0,0.04)" : "none", position: "relative" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <Activity size={14} color={T.accent} />
+                <p style={{ fontSize: 10, fontWeight: 800, color: T.muted, textTransform: "uppercase", letterSpacing: "0.15em", fontFamily: "'Syne', sans-serif" }}>
+                  {s.label}
+                </p>
+              </div>
+              <p style={{ fontWeight: 800, fontSize: 48, color: T.primary, lineHeight: 1, letterSpacing: "-0.04em", fontFamily: "'Syne', sans-serif" }}>
+                {mounted ? <Counter target={s.value} suffix={s.suffix} decimals={s.decimals}/> : `${s.value}${s.suffix}`}
+              </p>
+            </div>
+          ))}
+        </motion.div>
+      </section>
 
       {/* ── PORTAL CARDS ── */}
       <section style={{ position: "relative", zIndex: 1, padding: "0 3rem 112px", maxWidth: 1200, margin: "0 auto" }}>
@@ -968,228 +1408,124 @@ export default function Home() {
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.65 }}
-          style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 32 }}
+          style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 40 }}
         >
-          <div style={{ width: 32, height: 1.5, background: "linear-gradient(90deg, transparent, rgba(20,61,48,0.3))", borderRadius: 1 }}/>
-          <span style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.32em", color: T.muted, fontFamily: "'Syne', sans-serif" }}>
-            Select Your Portal
-          </span>
+          <div>
+            <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: T.accent, fontFamily: "'Syne', sans-serif", display: "block", marginBottom: 8 }}>
+              Integrated Ecosystem
+            </span>
+            <h2 style={{ fontSize: 32, fontWeight: 800, color: T.text, fontFamily: "'Syne', sans-serif", letterSpacing: "-0.03em", margin: 0 }}>
+              Select Your Portal
+            </h2>
+          </div>
+          <p style={{ fontSize: 14, color: T.sub, fontWeight: 500, maxWidth: 300, textAlign: "right", margin: 0, lineHeight: 1.5 }}>
+            Seamlessly toggle between specialized environments within the Cura infrastructure.
+          </p>
         </motion.div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 20, alignItems: "stretch" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 24 }}>
           {CARDS.map((card, i) => {
             const Icon = card.icon;
             const isHov = hovered === card.id;
             return (
-              <motion.div
-                key={card.id}
-                initial={{ opacity: 0, y: 40 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.55 + i * 0.12, type: "spring", stiffness: 280, damping: 26 }}
-                style={{ perspective: 1200 }}
-              >
+              <motion.div key={card.id} initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 + i * 0.12, type: "spring", stiffness: 280, damping: 26 }} style={{ height: "100%" }}>
                 <MagneticCard
-                  onClick={() => handleCardClick(card)}
-                  onMouseEnter={() => setHovered(card.id)}
-                  onMouseLeave={() => setHovered(null)}
+                  onClick={() => handleCardClick(card)} onMouseEnter={() => setHovered(card.id)} onMouseLeave={() => setHovered(null)}
                   style={{
-                    cursor: "pointer",
-                    height: "100%",
-                    background: isHov ? "rgba(255,255,255,0.98)" : "rgba(255,255,255,0.86)",
-                    backdropFilter: "blur(40px) saturate(1.6)",
-                    WebkitBackdropFilter: "blur(40px) saturate(1.6)",
-                    border: isHov ? "1px solid rgba(34,197,94,0.22)" : "1px solid rgba(255,255,255,0.95)",
-                    borderRadius: 28,
-                    padding: "2.75rem",
-                    position: "relative",
-                    overflow: "hidden",
-                    transition: "border 0.35s ease, background 0.35s ease, box-shadow 0.35s ease",
-                    minHeight: 380,
-                    display: "flex",
-                    flexDirection: "column",
-                    boxShadow: isHov
-                      ? "0 32px 72px rgba(13,51,39,0.16), 0 8px 24px rgba(0,0,0,0.06)"
-                      : "0 4px 24px rgba(0,0,0,0.05), 0 1px 4px rgba(0,0,0,0.03)",
+                    cursor: "pointer", height: "100%", background: "white", borderRadius: 24, padding: "2.25rem", position: "relative", overflow: "hidden",
+                    border: isHov ? "1px solid rgba(0,0,0,0.08)" : "1px solid rgba(0,0,0,0.04)",
+                    boxShadow: isHov ? "0 24px 48px rgba(0,0,0,0.04)" : "0 4px 16px rgba(0,0,0,0.02)",
+                    transition: "all 0.3s ease", display: "flex", flexDirection: "column", minHeight: 320,
                   }}
                 >
-                  <div style={{
-                    position: "absolute", top: 0, left: 0, right: 0, height: "40%",
-                    background: "linear-gradient(180deg, rgba(255,255,255,0.5) 0%, transparent 100%)",
-                    borderRadius: "28px 28px 0 0", pointerEvents: "none",
-                  }}/>
-
-                  <AnimatePresence>
-                    {isHov && (
-                      <motion.div
-                        initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        style={{
-                          position: "absolute", inset: 0, pointerEvents: "none",
-                          background: "radial-gradient(ellipse at 20% 10%, rgba(34,197,94,0.06) 0%, transparent 60%)",
-                        }}
-                      />
-                    )}
-                  </AnimatePresence>
-
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 36 }}>
-                    <div style={{
-                      padding: "5px 14px", borderRadius: 999,
-                      background: isHov ? "rgba(34,197,94,0.09)" : card.accentColor,
-                      border: `1px solid ${isHov ? "rgba(34,197,94,0.20)" : "rgba(20,61,48,0.10)"}`,
-                      transition: "all 0.3s",
-                      display: "flex", alignItems: "center", gap: 6,
-                    }}>
-                      {card.requiresAuth && <Lock size={9} style={{ color: isHov ? "#16A34A" : T.accent }} />}
-                      <span style={{
-                        fontSize: 10, fontWeight: 800, textTransform: "uppercase",
-                        letterSpacing: "0.18em", color: isHov ? "#16A34A" : T.accent,
-                        fontFamily: "'Syne', sans-serif",
-                      }}>
-                        {card.badge}
-                      </span>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 32 }}>
+                    <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(0,0,0,0.03)", display: "flex", alignItems: "center", justifyContent: "center", transition: "transform 0.3s ease", transform: isHov ? "scale(1.1)" : "scale(1)" }}>
+                      <Icon size={20} color={T.primary} />
                     </div>
-                    <motion.div
-                      animate={isHov ? { x: 3, y: -3, opacity: 1 } : { x: 0, y: 0, opacity: 0.35 }}
-                      transition={{ type: "spring", stiffness: 400 }}
-                    >
-                      <ArrowUpRight size={18} style={{ color: isHov ? "#16A34A" : T.muted }} />
-                    </motion.div>
+                    <span style={{ fontSize: 9, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.2em", color: T.muted, fontFamily: "'Syne', sans-serif" }}>
+                      {card.num} — {card.badge}
+                    </span>
                   </div>
 
-                  <motion.div
-                    animate={isHov ? { scale: 1.08, rotate: 4 } : { scale: 1, rotate: 0 }}
-                    transition={{ type: "spring", stiffness: 350, damping: 20 }}
-                    style={{
-                      width: 60, height: 60, borderRadius: 18, marginBottom: 24,
-                      background: `linear-gradient(145deg, ${card.color}ee, ${card.color})`,
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      boxShadow: isHov ? `0 12px 32px ${card.color}40` : `0 6px 18px ${card.color}28`,
-                      transition: "box-shadow 0.3s",
-                    }}
-                  >
-                    <Icon size={24} color="white" />
-                  </motion.div>
-
-                  <p style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.28em", color: T.muted, marginBottom: 10, fontFamily: "'Syne', sans-serif" }}>
-                    {card.num} — Portal
-                  </p>
-
-                  <h2 style={{ fontWeight: 800, fontSize: 28, color: T.text, marginBottom: 14, letterSpacing: "-0.03em", lineHeight: 1.1, fontFamily: "'Syne', sans-serif" }}>
+                  <h2 style={{ fontWeight: 800, fontSize: 22, color: T.text, marginBottom: 12, letterSpacing: "-0.02em", lineHeight: 1.2, fontFamily: "'Syne', sans-serif" }}>
                     {card.title}
                   </h2>
 
-                  <p style={{ color: "#64748B", fontSize: 15, lineHeight: 1.72, fontWeight: 400, marginBottom: 28, flex: 1 }}>
+                  <p style={{ color: T.sub, fontSize: 13, lineHeight: 1.6, fontWeight: 500, marginBottom: 28, flex: 1 }}>
                     {card.desc}
                   </p>
 
-                  <div style={{ height: 1, background: "linear-gradient(90deg, transparent, rgba(20,61,48,0.08), transparent)", marginBottom: 24 }}/>
-
-                  <ul style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-                    {card.bullets.map((b, bi) => (
-                      <motion.li
-                        key={b}
-                        initial={false}
-                        animate={isHov ? { x: 4 } : { x: 0 }}
-                        transition={{ delay: bi * 0.05, type: "spring", stiffness: 350 }}
-                        style={{ display: "flex", alignItems: "center", gap: 10 }}
-                      >
-                        <CheckCircle2 size={14} style={{ color: "#22C55E", flexShrink: 0 }} />
-                        <span style={{ fontSize: 14, fontWeight: 600, color: "#475569" }}>{b}</span>
-                      </motion.li>
+                  <ul style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {card.bullets.map((b) => (
+                      <li key={b} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 16, height: 16, borderRadius: "50%", background: "rgba(34,197,94,0.08)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <CheckCircle2 size={10} style={{ color: "#16A34A" }} />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: T.sub }}>{b}</span>
+                      </li>
                     ))}
                   </ul>
-
-                  <AnimatePresence>
-                    {isHov && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 6 }}
-                        transition={{ type: "spring", stiffness: 380, damping: 22 }}
-                        style={{
-                          marginTop: 24,
-                          display: "flex", alignItems: "center", gap: 8,
-                          fontSize: 11, fontWeight: 800, textTransform: "uppercase",
-                          letterSpacing: "0.18em", color: "#16A34A",
-                          fontFamily: "'Syne', sans-serif",
-                        }}
-                      >
-                        {card.requiresAuth ? "Authenticate & Enter" : "Enter Portal"} <ArrowUpRight size={13} />
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
                 </MagneticCard>
               </motion.div>
             );
           })}
+
+          {/* Integrate New Portal Card */}
+          <motion.div initial={{ opacity: 0, y: 40 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 + 5 * 0.12, type: "spring", stiffness: 280, damping: 26 }} style={{ height: "100%" }}>
+            <div style={{ background: "rgba(255,255,255,0.4)", border: "2px dashed rgba(34,197,94,0.25)", borderRadius: 24, padding: "2.5rem", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", minHeight: 320, textAlign: "center" }}>
+              <div style={{ width: 56, height: 56, borderRadius: "50%", background: "white", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.05)", marginBottom: 20 }}>
+                <Plus size={24} color={T.accent} />
+              </div>
+              <h2 style={{ fontWeight: 800, fontSize: 18, color: T.text, marginBottom: 8, fontFamily: "'Syne', sans-serif" }}>Integrate New Portal</h2>
+              <p style={{ color: T.sub, fontSize: 13, lineHeight: 1.6, marginBottom: 24 }}>Expand your network with partner laboratory or specialist clinics.</p>
+              <button style={{ background: "white", color: T.primary, border: "1px solid rgba(0,0,0,0.08)", borderRadius: 999, padding: "10px 24px", fontSize: 11, fontWeight: 800, letterSpacing: "0.1em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 2px 8px rgba(0,0,0,0.04)" }}>Request Access</button>
+            </div>
+          </motion.div>
         </div>
       </section>
 
       {/* ── TRUST STRIP ── */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 1.0 }}
-        style={{
-          position: "relative", zIndex: 1,
-          margin: "0 auto 96px",
-          maxWidth: 1200,
-          borderRadius: 20, padding: "24px 36px",
-          background: "rgba(255,255,255,0.72)",
-          backdropFilter: "blur(24px) saturate(1.8)",
-          WebkitBackdropFilter: "blur(24px) saturate(1.8)",
-          border: "1px solid rgba(255,255,255,0.92)",
-          boxShadow: "0 2px 16px rgba(0,0,0,0.04)",
-          display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0,
-        }}
+        initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 1.0 }}
+        style={{ position: "relative", zIndex: 1, margin: "0 auto 80px", maxWidth: 1200, borderRadius: 24, padding: "20px 32px", background: "white", border: "1px solid rgba(0,0,0,0.04)", boxShadow: "0 4px 20px rgba(0,0,0,0.02)", display: "flex", justifyContent: "space-between", alignItems: "center" }}
       >
         {TRUST.map(({ icon: Ic, label, sub }, idx) => (
-          <div
-            key={label}
-            style={{
-              display: "flex", alignItems: "center", gap: 14,
-              padding: "4px 24px",
-              borderRight: idx < TRUST.length - 1 ? "1px solid rgba(20,61,48,0.07)" : "none",
-            }}
-          >
-            <div style={{ width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: "rgba(20,61,48,0.06)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Ic size={16} style={{ color: T.accent }} />
+          <div key={label} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ width: 44, height: 44, borderRadius: "50%", background: "rgba(0,0,0,0.03)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Ic size={20} color={T.primary} />
             </div>
             <div>
-              <p style={{ fontSize: 13.5, fontWeight: 700, color: T.text, lineHeight: 1, fontFamily: "'Syne', sans-serif", letterSpacing: "-0.01em" }}>{label}</p>
-              <p style={{ fontSize: 11.5, color: T.muted, marginTop: 4, fontWeight: 500 }}>{sub}</p>
+              <p style={{ fontSize: 11, fontWeight: 800, color: T.primary, lineHeight: 1.2, fontFamily: "'Syne', sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>{label}</p>
+              <p style={{ fontSize: 11, color: T.muted, marginTop: 2, fontWeight: 500 }}>{sub}</p>
             </div>
+            {idx < TRUST.length - 1 && <div style={{ width: 1, height: 24, background: "rgba(0,0,0,0.06)", margin: "0 20px" }} />}
           </div>
         ))}
       </motion.div>
 
       {/* ── FOOTER ── */}
       <motion.footer
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1.2 }}
-        style={{
-          position: "relative", zIndex: 1,
-          borderTop: "1px solid rgba(20,61,48,0.07)",
-          padding: "28px 3rem 36px",
-          maxWidth: 1200, margin: "0 auto",
-          display: "flex", justifyContent: "space-between", alignItems: "center",
-          flexWrap: "wrap", gap: 16,
-        }}
+        initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 1.2 }}
+        style={{ position: "relative", zIndex: 1, borderTop: "1px solid rgba(0,0,0,0.06)", padding: "32px 3rem 40px", maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16 }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 9, overflow: "hidden", boxShadow: "0 2px 8px rgba(13,51,39,0.18)" }}>
+          <div style={{ width: 28, height: 28, borderRadius: 8, overflow: "hidden", boxShadow: "0 2px 8px rgba(0,0,0,0.1)" }}>
             <img src="/logo.jpeg" alt="Cura" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
           </div>
-          <div>
-            <p style={{ fontSize: 12, fontWeight: 700, color: T.text, lineHeight: 1, fontFamily: "'Syne', sans-serif", letterSpacing: "-0.02em" }}>Cura</p>
-            <p style={{ fontSize: 10, fontWeight: 500, color: T.muted, marginTop: 2 }}>© 2026 — All rights reserved</p>
-          </div>
+          <span style={{ fontSize: 14, fontWeight: 800, color: T.text, fontFamily: "'Syne', sans-serif" }}>Cura</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
-          <span style={{ fontSize: 11, fontWeight: 600, color: T.muted }}>Powered by Supabase + Website Bot</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 12px", borderRadius: 999, background: "rgba(20,61,48,0.06)", border: "1px solid rgba(20,61,48,0.09)" }}>
-            <Zap size={10} style={{ color: T.accent }} />
-            <span style={{ fontSize: 11, fontWeight: 800, color: T.accent, fontFamily: "'Syne', sans-serif", letterSpacing: "0.06em" }}>v2.0</span>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 32 }}>
+          <a href="#" style={{ fontSize: 10, fontWeight: 800, color: T.muted, textTransform: "uppercase", letterSpacing: "0.15em", textDecoration: "none" }}>Security</a>
+          <a href="#" style={{ fontSize: 10, fontWeight: 800, color: T.muted, textTransform: "uppercase", letterSpacing: "0.15em", textDecoration: "none" }}>Privacy</a>
+          <a href="#" style={{ fontSize: 10, fontWeight: 800, color: T.muted, textTransform: "uppercase", letterSpacing: "0.15em", textDecoration: "none" }}>Terms</a>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <p style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>© 2026 Cura Healthcare Systems. Premium Clinic Operating OS.</p>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 999, background: "rgba(34,197,94,0.06)", border: "1px solid rgba(34,197,94,0.12)" }}>
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16A34A" }} />
+            <span style={{ fontSize: 10, fontWeight: 800, color: "#16A34A", fontFamily: "'Syne', sans-serif", letterSpacing: "0.06em" }}>v2.4.0</span>
           </div>
         </div>
       </motion.footer>

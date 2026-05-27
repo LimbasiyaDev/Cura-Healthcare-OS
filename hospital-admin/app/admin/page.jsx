@@ -2,7 +2,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
-import { LogOut, RefreshCw, CheckCircle2, XCircle, LayoutDashboard, Building2, Users, Calendar, Settings, HelpCircle, BedDouble, Activity, Bell, Search, X, Mail, Phone } from "lucide-react";
+import { LogOut, RefreshCw, CheckCircle2, XCircle, LayoutDashboard, Building2, Users, Calendar, Settings, HelpCircle, BedDouble, Activity, Bell, Search, X, Mail, Phone, FlaskConical, Pill } from "lucide-react";
+import { motion } from "framer-motion";
 import HospitalModal     from "./components/HospitalModal";
 import EditHospitalModal from "./components/EditHospitalModal";
 import SpecialistModal   from "./components/SpecialistModal";
@@ -128,13 +129,16 @@ function AppointmentRow({ a, doc, i, total, handleApptStatus, auditAdminRead }) 
         <p style={{ fontSize:13, fontWeight:700, color:"#0F172A" }}>{a.name || "—"}</p>
         <p style={{ fontSize:11, color:"#94A3B8" }}>{a.reason || ""}</p>
       </div>
-      <span style={{ fontSize:12, color:"#64748B", fontWeight:600, display:"flex", alignItems:"center", gap:6 }}>
-        {a.phone ? (
-          <>
-            {a.phone.includes("@") ? <Mail size={13} style={{ opacity: 0.6 }} /> : <Phone size={13} style={{ opacity: 0.6 }} />}
-            <span>{a.phone.replace(/^web_/, "")}</span>
-          </>
-        ) : "—"}
+      <span style={{ fontSize:12, color:"#64748B", fontWeight:600, display:"flex", flexDirection:"column", gap:2 }}>
+        <div style={{ display:"flex", alignItems:"center", gap:6 }}>
+          {a.phone ? (
+            <>
+              {a.phone.includes("@") ? <Mail size={13} style={{ opacity: 0.6 }} /> : <Phone size={13} style={{ opacity: 0.6 }} />}
+              <span>{a.phone.replace(/^web_/, "")}</span>
+            </>
+          ) : "—"}
+        </div>
+        {a.patient_uid && <span style={{ fontSize:10, color:"#10B981", fontWeight:700 }}>#{a.patient_uid}</span>}
       </span>
       <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>{a.date || "—"}</span>
       <span style={{ fontSize:12, color:"#64748B", fontWeight:600 }}>{a.slot || "—"}</span>
@@ -244,9 +248,21 @@ export default function MasterAdmin() {
         supabase.from("doctors").select("*").order("name"),
         supabase.from("appointments").select("*").order("created_at", { ascending: false }).limit(500),
       ]);
+      
+      const { data: wpData } = await supabase.from("web_patients").select("phone, email, uid");
+      const uidMap = {};
+      if (wpData) {
+        wpData.forEach(wp => {
+          if (wp.phone) uidMap[wp.phone] = wp.uid;
+          if (wp.email) { uidMap[wp.email] = wp.uid; uidMap[`web_${wp.email}`] = wp.uid; }
+        });
+      }
+      
+      const finalAppts = (appts || []).map(a => ({ ...a, patient_uid: uidMap[a.phone] || null }));
+
       setHospitals(hosp || []);
       setDoctors(docs || []);
-      setAppointments(appts || []);
+      setAppointments(finalAppts);
       setActiveHosp(prev => {
         if (prev) return (hosp||[]).find(h => h.id === prev.id) || (hosp||[])[0] || null;
         return (hosp||[])[0] || null;
@@ -265,6 +281,12 @@ export default function MasterAdmin() {
   }, [router, manageDoc]);
 
   useEffect(() => { load(); }, []); // eslint-disable-line
+
+  // Auto-refresh every 30 seconds
+  useEffect(() => {
+    const id = setInterval(() => load(true), 30000);
+    return () => clearInterval(id);
+  }, []); // eslint-disable-line
 
   // Handle auto logout on browser back
   useEffect(() => {
@@ -528,118 +550,113 @@ export default function MasterAdmin() {
     { key:"hospitals",  label:"Hospitals", Icon:Building2 },
     { key:"doctors",    label:"Doctors",   Icon:Users },
     { key:"historical", label:"Patients",  Icon:Calendar },
+    { key:"laboratory", label:"Laboratory",Icon:FlaskConical },
+    { key:"pharmacy",   label:"Pharmacy",  Icon:Pill },
     { key:"settings",   label:"Settings",  Icon:Settings },
   ];
 
   /* ─ render ────────────────────────────────────────────────────────────── */
   return (
-    <div style={{ display:"flex", minHeight:"100vh", background:"#EEF3F0", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+    <div style={{ display:"flex", minHeight:"100vh", background:"#FAFAFA", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
 
       {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
-      <aside style={{ width:200, minHeight:"100vh", background:"white", borderRight:"1px solid rgba(20,61,48,0.07)", display:"flex", flexDirection:"column", position:"fixed", left:0, top:0, zIndex:40, padding:"0 0 24px", boxShadow:"2px 0 24px rgba(20,61,48,0.04)" }}>
-        <div style={{ padding:"22px 18px 18px", display:"flex", alignItems:"center", gap:10, borderBottom:"1px solid rgba(20,61,48,0.06)" }}>
-          <div style={{ width:36, height:36, borderRadius:11, background:"#143D30", display:"flex", alignItems:"center", justifyContent:"center", fontSize:18, flexShrink:0 }}>🛡️</div>
+      <aside style={{ width:210, minHeight:"100vh", background:"white", borderRight:"1px solid rgba(0,0,0,0.05)", display:"flex", flexDirection:"column", position:"fixed", left:0, top:0, zIndex:40, padding:"0 0 24px" }}>
+        <div style={{ padding:"24px 20px 20px", display:"flex", alignItems:"center", gap:12, borderBottom:"1px solid rgba(0,0,0,0.03)" }}>
+          <div style={{ width:38, height:38, borderRadius:12, background:"#143D30", display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}>
+            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, color:"white", fontSize:18 }}>C</span>
+          </div>
           <div>
-            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:16, color:"#0F172A", lineHeight:1.1 }}>Cura</div>
-            <div style={{ fontSize:9.5, color:"#94A3B8", fontWeight:600, letterSpacing:"0.08em", textTransform:"uppercase" }}>Admin Portal</div>
+            <div style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18, color:"#0F172A", lineHeight:1.1 }}>Cura</div>
+            <div style={{ fontSize:9.5, color:"#94A3B8", fontWeight:800, letterSpacing:"0.08em", textTransform:"uppercase", marginTop:2 }}>Admin Portal</div>
           </div>
         </div>
-        <nav style={{ flex:1, padding:"14px 10px", display:"flex", flexDirection:"column", gap:2 }}>
+        <nav style={{ flex:1, padding:"20px 14px", display:"flex", flexDirection:"column", gap:4 }}>
           {NAV_ITEMS.map(({ key, label, Icon }) => (
-            <button key={key} onClick={() => switchTab(key)}
-              style={{ display:"flex", alignItems:"center", gap:10, padding:"10px 12px", borderRadius:11, fontSize:13.5, fontWeight:tab===key?700:600, color:tab===key?"#143D30":"#64748B", cursor:"pointer", border:"none", background:tab===key?"#EAF2EE":"none", width:"100%", textAlign:"left", fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"all 0.15s", position:"relative" }}>
-              {tab === key && <span style={{ position:"absolute", left:0, top:"20%", bottom:"20%", width:3, borderRadius:"0 3px 3px 0", background:"#143D30" }}/>}
-              <span style={{ width:18, height:18, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><Icon size={17}/></span>
+            <motion.button key={key} onClick={() => switchTab(key)} whileHover={{ x: 3 }} whileTap={{ scale: 0.98 }}
+              style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:12, fontSize:13.5, fontWeight:tab===key?700:600, color:tab===key?"#143D30":"#64748B", cursor:"pointer", border:"none", background:tab===key?"#F0F8F5":"transparent", width:"100%", textAlign:"left", fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"color 0.15s, background 0.15s", position:"relative" }}>
+              <span style={{ width:20, height:20, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0, color:tab===key?"#143D30":"#94A3B8" }}><Icon size={18} strokeWidth={tab===key?2.5:2}/></span>
               {label}
-            </button>
+            </motion.button>
           ))}
         </nav>
 
-        <div style={{ margin:"0 10px 10px", padding:"13px 14px", borderRadius:13, background:"#F8FAF9", border:"1px solid rgba(20,61,48,0.07)" }}>
-          <div style={{ fontSize:11, fontWeight:700, color:"#334155", display:"flex", alignItems:"center", gap:6, marginBottom:7, fontFamily:"'Syne',sans-serif" }}>
-            <Activity size={12} color="#059669"/>System Health
+        <div style={{ margin:"0 14px 14px", padding:"14px", borderRadius:16, background:"#F8FAFC", border:"1px solid rgba(0,0,0,0.04)" }}>
+          <div style={{ fontSize:10.5, fontWeight:800, color:"#0F172A", display:"flex", alignItems:"center", gap:6, marginBottom:8, fontFamily:"'Syne',sans-serif", textTransform:"uppercase", letterSpacing:"0.05em" }}>
+            <div style={{ width:8, height:8, borderRadius:"50%", background:"#10B981" }} /> SYSTEM HEALTH
           </div>
-          <div style={{ height:5, background:"#E2EAE6", borderRadius:999, overflow:"hidden", marginBottom:4 }}>
-            <div style={{ height:"100%", width:"100%", background:"linear-gradient(90deg,#143D30,#4ECCA3)", borderRadius:999 }}/>
+          <div style={{ height:6, background:"#E2E8F0", borderRadius:999, overflow:"hidden", marginBottom:6 }}>
+            <div style={{ height:"100%", width:"100%", background:"#10B981", borderRadius:999 }}/>
           </div>
-          <div style={{ fontSize:10, color:"#94A3B8", fontWeight:600 }}>100% Operational</div>
+          <div style={{ fontSize:10.5, color:"#64748B", fontWeight:600 }}>100% Operational</div>
         </div>
 
-        <div style={{ padding:"0 10px", display:"flex", flexDirection:"column", gap:2 }}>
-          <button onClick={() => setShowSupport(true)}
-            style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:11, fontSize:13, fontWeight:600, color:"#94A3B8", cursor:"pointer", border:"none", background:"none", width:"100%", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-            <HelpCircle size={16}/> Support
-          </button>
-          <button onClick={async () => {
+        <div style={{ padding:"0 14px", display:"flex", flexDirection:"column", gap:4 }}>
+          <motion.button onClick={() => setShowSupport(true)} whileHover={{ background:"#F8FAFC" }}
+            style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:12, fontSize:13.5, fontWeight:600, color:"#64748B", cursor:"pointer", border:"none", background:"transparent", width:"100%", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+            <span style={{ width:20, display:"flex", justifyContent:"center" }}><HelpCircle size={18}/></span> Support
+          </motion.button>
+          <motion.button onClick={async () => {
               sessionStorage.removeItem("admin_authenticated");
-              try {
-                await supabase.auth.signOut();
-              } catch (err) {
-                console.warn("SignOut error:", err);
-              }
+              try { await supabase.auth.signOut(); } catch (err) {}
               router.push("/admin-login");
-            }}
-            style={{ display:"flex", alignItems:"center", gap:10, padding:"9px 12px", borderRadius:11, fontSize:13, fontWeight:600, color:"#EF4444", cursor:"pointer", border:"none", background:"none", width:"100%", fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
-            <LogOut size={16}/> Sign Out
-          </button>
+            }} whileHover={{ background:"#FEF2F2", color:"#DC2626" }}
+            style={{ display:"flex", alignItems:"center", gap:12, padding:"12px 14px", borderRadius:12, fontSize:13.5, fontWeight:600, color:"#64748B", cursor:"pointer", border:"none", background:"transparent", width:"100%", fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"color 0.15s, background 0.15s" }}>
+            <span style={{ width:20, display:"flex", justifyContent:"center" }}><LogOut size={18}/></span> Sign Out
+          </motion.button>
         </div>
       </aside>
 
       {/* ── MAIN ─────────────────────────────────────────────────────────── */}
-      <div style={{ marginLeft:200, flex:1, display:"flex", flexDirection:"column" }}>
+      <div style={{ marginLeft:210, flex:1, display:"flex", flexDirection:"column" }}>
 
         {/* TOPBAR */}
-        <div style={{ height:64, background:"rgba(255,255,255,0.95)", backdropFilter:"blur(48px)", borderBottom:"1px solid rgba(20,61,48,0.07)", display:"flex", alignItems:"center", padding:"0 28px", gap:14, position:"sticky", top:0, zIndex:30, boxShadow:"0 4px 16px rgba(20,61,48,0.04)" }}>
-          <div style={{ display:"flex", flexDirection:"column" }}>
-            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:18, color:"#0F172A", letterSpacing:"-0.03em" }}>
-              {{ dashboard:"Dashboard", hospitals:"Hospitals", doctors:"Doctors", historical:"Patients", settings:"Settings" }[tab]}
+        <div style={{ height:72, background:"transparent", borderBottom:"none", display:"flex", alignItems:"center", padding:"0 36px", gap:16, position:"sticky", top:0, zIndex:30, paddingTop:12 }}>
+          <div style={{ display:"flex", flexDirection:"column", minWidth: 160 }}>
+            <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:22, color:"#0F172A", letterSpacing:"-0.02em" }}>
+              {{ dashboard:"Dashboard", hospitals:"Hospitals", doctors:"Doctors", historical:"Patients", laboratory:"Laboratory", pharmacy:"Pharmacy", settings:"Settings" }[tab]}
             </span>
           </div>
 
           {/* Search — hidden on settings tab */}
           {tab !== "settings" && (
-            <div style={{ flex:1, maxWidth:400, position:"relative", marginLeft:16 }}>
-              <Search size={13} style={{ position:"absolute", left:13, top:"50%", transform:"translateY(-50%)", color:"#94A3B8", pointerEvents:"none" }}/>
+            <div style={{ flex:1, maxWidth:480, position:"relative" }}>
+              <Search size={15} style={{ position:"absolute", left:16, top:"50%", transform:"translateY(-50%)", color:"#94A3B8", pointerEvents:"none" }}/>
               <input
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 placeholder={searchPlaceholder}
-                style={{ width:"100%", padding:"9px 36px 9px 36px", borderRadius:999, border:"1.5px solid rgba(20,61,48,0.09)", background:"#F6FAF8", fontSize:13, color:"#334155", outline:"none", fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"border-color 0.15s" }}
-                onFocus={e => e.target.style.borderColor = "#143D30"}
-                onBlur={e => e.target.style.borderColor = "rgba(20,61,48,0.09)"}
+                style={{ width:"100%", padding:"11px 40px", borderRadius:999, border:"1px solid rgba(0,0,0,0.06)", background:"white", fontSize:13.5, fontWeight:500, color:"#334155", outline:"none", fontFamily:"'Plus Jakarta Sans',sans-serif", transition:"border-color 0.15s, box-shadow 0.15s" }}
+                onFocus={e => { e.target.style.borderColor = "#143D30"; e.target.style.boxShadow = "0 0 0 4px rgba(20,61,48,0.05)"; }}
+                onBlur={e => { e.target.style.borderColor = "rgba(0,0,0,0.06)"; e.target.style.boxShadow = "none"; }}
               />
               {searchQuery && (
                 <button onClick={() => setSearchQuery("")}
-                  style={{ position:"absolute", right:12, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#94A3B8", display:"flex", padding:2 }}>
-                  <X size={13}/>
+                  style={{ position:"absolute", right:16, top:"50%", transform:"translateY(-50%)", background:"none", border:"none", cursor:"pointer", color:"#94A3B8", display:"flex", padding:2 }}>
+                  <X size={15}/>
                 </button>
               )}
             </div>
           )}
 
-          <div style={{ display:"flex", alignItems:"center", gap:8, marginLeft:"auto" }}>
-            <button onClick={() => load(true)}
-              style={{ width:36, height:36, borderRadius:10, border:"1.5px solid rgba(20,61,48,0.09)", background:"#F6FAF8", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#64748B" }}>
-              <RefreshCw size={14} style={{ animation:refreshing?"spin 0.8s linear infinite":undefined }}/>
-            </button>
-            <button style={{ width:36, height:36, borderRadius:10, border:"1.5px solid rgba(20,61,48,0.09)", background:"#F6FAF8", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#64748B", position:"relative" }}>
-              <Bell size={15}/>
-              {pendingAll > 0 && <span style={{ position:"absolute", top:-2, right:-2, width:9, height:9, background:"#EF4444", borderRadius:"50%", border:"2px solid white" }}/>}
-            </button>
-            <div style={{ width:1, height:28, background:"rgba(20,61,48,0.08)" }}/>
-            <button onClick={() => router.push("/doctor")}
-              style={{ padding:"8px 16px", borderRadius:10, border:"1.5px solid rgba(20,61,48,0.12)", background:"white", color:"#143D30", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:11, cursor:"pointer", letterSpacing:"0.06em" }}>
-              DOCTOR PORTAL →
-            </button>
-            <button onClick={() => setShowSpec(true)}
-              style={{ padding:"9px 18px", borderRadius:10, background:"#143D30", color:"white", border:"none", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:11, cursor:"pointer", boxShadow:"0 4px 14px rgba(20,61,48,0.28)", letterSpacing:"0.08em" }}>
-              + ONBOARD SPECIALIST
-            </button>
+          <div style={{ display:"flex", alignItems:"center", gap:14, marginLeft:"auto" }}>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => load(true)}
+              style={{ width:40, height:40, borderRadius:"50%", border:"none", background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#94A3B8" }}>
+              <RefreshCw size={18} style={{ animation:refreshing?"spin 0.8s linear infinite":undefined }}/>
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}
+              style={{ width:40, height:40, borderRadius:"50%", border:"none", background:"transparent", cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", color:"#94A3B8", position:"relative" }}>
+              <Bell size={18}/>
+              {pendingAll > 0 && <span style={{ position:"absolute", top:8, right:10, width:8, height:8, background:"#EF4444", borderRadius:"50%", border:"2px solid #FAFAFA" }}/>}
+            </motion.button>
+            <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={() => router.push("/doctor")}
+              style={{ padding:"10px 20px", borderRadius:999, border:"1px solid rgba(0,0,0,0.08)", background:"white", color:"#143D30", fontFamily:"'Syne',sans-serif", fontWeight:800, fontSize:11, cursor:"pointer", letterSpacing:"0.08em", display:"flex", alignItems:"center", gap:6 }}>
+              DOCTOR PORTAL <span style={{ fontSize:12 }}>→</span>
+            </motion.button>
           </div>
         </div>
 
         {/* PAGE CONTENT */}
-        <div style={{ padding:"28px 28px 48px", flex:1 }}>
+        <div style={{ padding:"24px 36px 48px", flex:1 }}>
 
           {/* Hospital switcher — hidden on dashboard and settings */}
           {tab !== "dashboard" && tab !== "settings" && (
