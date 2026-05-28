@@ -120,8 +120,10 @@ const CONFIG = {
 
 /* ─── SUPABASE ───────────────────────────────────────────────────────────── */
 const WebSocket = require('ws');
-const supabase      = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, { global: { WebSocket } });
-const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, { global: { WebSocket } });
+global.WebSocket = WebSocket;
+const supabaseOpts = { auth: { persistSession: false }, realtime: { transport: WebSocket } };
+const supabase      = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, supabaseOpts);
+const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, supabaseOpts);
 
 
 /* ─── AI CLIENTS ─────────────────────────────────────────────────────────── */
