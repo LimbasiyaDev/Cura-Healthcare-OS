@@ -119,8 +119,9 @@ const CONFIG = {
 };
 
 /* ─── SUPABASE ───────────────────────────────────────────────────────────── */
-const supabase      = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+const WebSocket = require('ws');
+const supabase      = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY, { global: { WebSocket } });
+const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY, { global: { WebSocket } });
 
 
 /* ─── AI CLIENTS ─────────────────────────────────────────────────────────── */

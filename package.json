@@ -17,6 +17,7 @@
     "form-data": "^4.0.5",
     "node-fetch": "^3.3.2",
     "nodemailer": "^8.0.7",
-    "openai": "^6.36.0"
+    "openai": "^6.36.0",
+    "ws": "^8.21.0"
   }
 }
