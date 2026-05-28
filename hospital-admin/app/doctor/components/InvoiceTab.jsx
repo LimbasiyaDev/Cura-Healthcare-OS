@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { createClient } from "@supabase/supabase-js";
 import {
   Search, X, User, Phone, Calendar, Hash, Mail,
   Plus, Minus, Trash2, Printer, MessageCircle,
@@ -14,6 +15,11 @@ import {
 const PRIMARY   = "#143D30";
 const ACCENT    = "#4ECCA3";
 const BOT_URL   = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:4000";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+);
 
 const CATALOG = {
   Consultation: [
@@ -502,7 +508,9 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
       };
 
       // 1. Save to Supabase first using secure server-side API to bypass RLS
-      const token = localStorage.getItem('cura_access_token') || '';
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token || '';
+      
       const saveRes = await fetch("/api/save-invoice", {
         method:  "POST",
         headers: { 
@@ -517,45 +525,10 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
         throw new Error(err.error || `Database error ${saveRes.status}`);
       }
 
-      const payload = {
-        phone:       patPhone,
-        patientName: patName,
-        patientId:   patId,
-        doctorName:  docName || doctor?.name,
-        facility,
-        invoiceNum:  invNumRef.current,
-        visitDate,
-        dueDate,
-        items:       items.map(it => ({ desc: it.desc, category: it.category, price: it.price, qty: it.qty })),
-        subtotal,
-        tax,
-        insurance:   ins,
-        discount:    disc,
-        total,
-        payStatus,
-        insProvider,
-        notes:       billNotes,
-        hospitalId:  doctor?.hospital_id,
-        doctorId:    doctor?.id,
-        // The bot will build the pay page URL from this
-        taxEnabled:  taxOn,
-      };
-
-      const res = await fetch(`${BOT_URL}/send-invoice`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Server error ${res.status}`);
-      }
-
       setInvoiceStatus("sent");
       setSentAt(new Date().toLocaleTimeString());
       startPolling(invNumRef.current);
-      showToast(`✅ Invoice sent to ${patName} via Bot with Pay Now link!`, "success");
+      showToast(`✅ Invoice saved and now available in patient portal!`, "success");
     } catch (err) {
       showToast(`Failed to send: ${err.message}`, "error");
     } finally {
