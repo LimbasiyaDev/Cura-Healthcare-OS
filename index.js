@@ -2,7 +2,6 @@ require('dotenv').config({ path: './hospital-admin/.env.local' });
 const express    = require("express");
 const axios      = require("axios");
 const cors       = require("cors");
-const fetch      = require("node-fetch");
 const FormData   = require("form-data");
 const nodemailer = require("nodemailer");
 const crypto     = require("crypto");
