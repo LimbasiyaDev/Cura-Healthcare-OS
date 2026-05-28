@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { createClient } from "@supabase/supabase-js";
+import { createBrowserClient } from "@supabase/ssr";
 import {
   Search, X, User, Phone, Calendar, Hash, Mail,
   Plus, Minus, Trash2, Printer, MessageCircle,
@@ -16,7 +16,7 @@ const PRIMARY   = "#143D30";
 const ACCENT    = "#4ECCA3";
 const BOT_URL   = process.env.NEXT_PUBLIC_BOT_URL || "http://localhost:4000";
 
-const supabase = createClient(
+const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 );

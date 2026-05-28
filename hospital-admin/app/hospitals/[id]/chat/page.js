@@ -1639,13 +1639,13 @@ export default function HospitalChatPage() {
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 24, padding: "8px 12px", overflowY: "auto", flex: 1, maxHeight: "calc(100vh - 48px)", maxWidth: 1200, width: "100%", margin: "0 auto", boxSizing: "border-box" }}>
         {/* Title */}
-        <div>
+        <div style={{ flexShrink: 0 }}>
           <h2 style={{ fontSize: 28, fontWeight: 900, color: T.primary, margin: 0, fontFamily: "'Syne', sans-serif" }}>Medical Profile</h2>
           <p style={{ margin: "4px 0 0 0", color: T.sub, fontSize: 13 }}>Access your complete medical file, allergies, emergency contacts, and timelines.</p>
         </div>
 
         {/* Large Verified User Card */}
-        <div style={{ background: "linear-gradient(135deg, #0D3327 0%, #1F4D3E 100%)", borderRadius: 24, padding: 32, color: "white", position: "relative", overflow: "hidden", boxShadow: "0 12px 36px rgba(13,51,39,0.18)" }}>
+        <div style={{ background: "linear-gradient(135deg, #0D3327 0%, #1F4D3E 100%)", borderRadius: 24, padding: 32, color: "white", position: "relative", overflow: "hidden", boxShadow: "0 12px 36px rgba(13,51,39,0.18)", flexShrink: 0 }}>
           <div style={{ position: "relative", zIndex: 2, display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 20 }}>
             <div style={{ display: "flex", gap: 24, alignItems: "center" }}>
               <div style={{ width: 84, height: 84, borderRadius: "50%", background: "#fff", border: "4px solid rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center", color: T.primary }}>
@@ -1695,7 +1695,7 @@ export default function HospitalChatPage() {
         </div>
 
         {/* Double Column Grid: Allergies/Conditions & Contacts */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 20, flexShrink: 0 }}>
           {/* Allergies & Conditions */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {/* Allergies Box */}
