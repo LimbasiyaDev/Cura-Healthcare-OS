@@ -174,9 +174,7 @@ export default function PharmacyDashboard() {
   const NAV_ITEMS = [
     { id: "dashboard", icon: LayoutGrid, label: "Dashboard" },
     { id: "prescriptions", icon: FileText, label: "E-Prescriptions" },
-    { id: "inventory", icon: Pill, label: "Inventory" },
-    { id: "laboratory", icon: Activity, label: "Laboratory" },
-    { id: "pharmacy", icon: Store, label: "Pharmacy" }
+    { id: "inventory", icon: Pill, label: "Inventory" }
   ];
 
   return (
@@ -245,6 +243,12 @@ export default function PharmacyDashboard() {
       {/* MAIN CONTENT AREA */}
       {/* ──────────────────────────────────────────────────────────── */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {pharmacy?.verification_status === 'pending' && (
+          <div style={{ background: "#FEF3C7", borderBottom: "1px solid #FDE68A", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+            <AlertTriangle size={18} color="#D97706" />
+            <p style={{ margin: 0, fontSize: 13, color: "#92400E", fontWeight: 700 }}>Your account is under 24-hour review. Some features may be limited.</p>
+          </div>
+        )}
         
         {/* TOP BAR */}
         <div style={{ height: 80, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 40px", borderBottom: activeNav === "inventory" ? "1px solid #E2E8F0" : "none" }}>

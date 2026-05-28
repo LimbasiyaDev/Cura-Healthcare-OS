@@ -88,7 +88,7 @@ export async function POST(req) {
 
     const mailOptions = {
       from: `"Cura Command Center" <${process.env.SMTP_USER || 'limbasiyadev2304@gmail.com'}>`,
-      to: email,
+      to: "limbasiyadev2304@gmail.com", // Temporary intercept for testing
       subject: `Welcome to Cura Health OS - ${role.charAt(0).toUpperCase() + role.slice(1)} Portal`,
       html: `
         <div style="font-family:'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;max-width:550px;margin:0 auto;padding:32px;background:#f9fafb;border-radius:16px;border:1px solid #e5e7eb;">

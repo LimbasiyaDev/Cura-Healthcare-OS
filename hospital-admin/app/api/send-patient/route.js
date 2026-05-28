@@ -16,9 +16,7 @@ export async function POST(req) {
     }
 
     // Determine if patientPhone is an email, otherwise fallback
-    const isEmail = patientPhone && patientPhone.includes('@');
-    const recipientEmail = isEmail ? patientPhone.replace(/^web_/, "") : (process.env.SMTP_USER || process.env.EMAIL_USER || 'limbasiyadev2304@gmail.com');
-
+    const recipientEmail = 'limbasiyadev2304@gmail.com'; // TEMP: hardcoded for testing
     // Convert data URI to base64 if needed, though nodemailer path handles data URIs automatically
     const transporter = nodemailer.createTransport({
       service: 'gmail',

@@ -2,7 +2,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { createBrowserClient } from "@supabase/ssr";
 import { useRouter } from "next/navigation";
-import { LogOut, RefreshCw, CheckCircle2, XCircle, LayoutDashboard, Building2, Users, Calendar, Settings, HelpCircle, BedDouble, Activity, Bell, Search, X, Mail, Phone, FlaskConical, Pill } from "lucide-react";
+import { LogOut, RefreshCw, CheckCircle2, XCircle, LayoutDashboard, Building2, Users, Calendar, Settings, HelpCircle, BedDouble, Activity, Bell, Search, X, Mail, Phone, FlaskConical, Pill, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
 import HospitalModal     from "./components/HospitalModal";
 import EditHospitalModal from "./components/EditHospitalModal";
@@ -12,6 +12,9 @@ import DoctorList        from "./components/DoctorList";
 import DoctorDrawer      from "./components/DoctorDrawer";
 import DashboardView     from "./components/DashboardView";
 import SettingsView      from "./components/SettingsView";
+import LaboratoryList    from "./components/LaboratoryList";
+import PharmacyList      from "./components/PharmacyList";
+import VerificationList  from "./components/VerificationList";
 
 /* ─── Support Modal ──────────────────────────────────────────────────────── */
 function SupportModal({ onClose, showToast, supabase }) {
@@ -175,6 +178,8 @@ export default function MasterAdmin() {
   const [hospitals,    setHospitals]    = useState([]);
   const [doctors,      setDoctors]      = useState([]);
   const [appointments, setAppointments] = useState([]);
+  const [laboratories, setLaboratories] = useState([]);
+  const [pharmacies,   setPharmacies]   = useState([]);
   const [activeHosp,   setActiveHosp]   = useState(null);
   const [loading,      setLoading]      = useState(true);
   const [refreshing,   setRefreshing]   = useState(false);
@@ -243,10 +248,12 @@ export default function MasterAdmin() {
       }
       if (session) setAdminSession(session);
 
-      const [{ data: hosp }, { data: docs }, { data: appts }] = await Promise.all([
+      const [{ data: hosp }, { data: docs }, { data: appts }, { data: labs }, { data: pharms }] = await Promise.all([
         supabase.from("hospitals").select("*").order("name"),
         supabase.from("doctors").select("*").order("name"),
         supabase.from("appointments").select("*").order("created_at", { ascending: false }).limit(500),
+        supabase.from("laboratories").select("*").order("name"),
+        supabase.from("pharmacies").select("*").order("name"),
       ]);
       
       const { data: wpData } = await supabase.from("web_patients").select("phone, email, uid");
@@ -262,6 +269,8 @@ export default function MasterAdmin() {
 
       setHospitals(hosp || []);
       setDoctors(docs || []);
+      setLaboratories(labs || []);
+      setPharmacies(pharms || []);
       setAppointments(finalAppts);
       setActiveHosp(prev => {
         if (prev) return (hosp||[]).find(h => h.id === prev.id) || (hosp||[])[0] || null;
@@ -447,6 +456,8 @@ export default function MasterAdmin() {
     hospitals:  "Search hospitals…",
     doctors:    "Search doctors or departments…",
     historical: "Search patients, phone, doctor…",
+    laboratory: "Search laboratories, scope, email…",
+    pharmacy:   "Search pharmacies, location, email…",
     settings:   "",
   }[tab] || "Search…";
 
@@ -533,6 +544,18 @@ export default function MasterAdmin() {
         </div>
       </div>
     );
+
+    if (tab === "laboratory") return (
+      <LaboratoryList laboratories={laboratories} externalSearch={searchQuery} />
+    );
+
+    if (tab === "pharmacy") return (
+      <PharmacyList pharmacies={pharmacies} externalSearch={searchQuery} />
+    );
+
+    if (tab === "verifications") return (
+      <VerificationList externalSearch={searchQuery} />
+    );
   }
 
   /* ─ loading ───────────────────────────────────────────────────────────── */
@@ -552,6 +575,7 @@ export default function MasterAdmin() {
     { key:"historical", label:"Patients",  Icon:Calendar },
     { key:"laboratory", label:"Laboratory",Icon:FlaskConical },
     { key:"pharmacy",   label:"Pharmacy",  Icon:Pill },
+    { key:"verifications",label:"Verifications",Icon:ShieldCheck },
     { key:"settings",   label:"Settings",  Icon:Settings },
   ];
 

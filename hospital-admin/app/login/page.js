@@ -38,6 +38,11 @@ export default function LoginPage() {
   const [pendingUserId, setPendingUserId] = useState(null);
   const [pendingUserRole, setPendingUserRole] = useState(null);
   const [mounted, setMounted] = useState(false);
+  
+  // Onboarding Wizard State
+  const [wizardStep, setWizardStep] = useState(1);
+  const [details, setDetails] = useState({ phone: "", address: "" });
+  const [proofFile, setProofFile] = useState(null);
 
   const router = useRouter();
 
@@ -59,19 +64,28 @@ export default function LoginPage() {
         { data: pharmacy },
         { data: laboratory }
       ] = await Promise.all([
-        supabase.from("doctors").select("first_login, name, user_id, id").eq("user_id", userId).maybeSingle(),
-        supabase.from("pharmacies").select("first_login, name, user_id, id").eq("user_id", userId).maybeSingle(),
-        supabase.from("laboratories").select("first_login, name, user_id, id").eq("user_id", userId).maybeSingle(),
+        supabase.from("doctors").select("first_login, name, user_id, id, verification_status").eq("user_id", userId).maybeSingle(),
+        supabase.from("pharmacies").select("first_login, name, user_id, id, verification_status").eq("user_id", userId).maybeSingle(),
+        supabase.from("laboratories").select("first_login, name, user_id, id, verification_status").eq("user_id", userId).maybeSingle(),
       ]);
 
       let userEntity = doctor || pharmacy || laboratory;
       let userRole = doctor ? "doctor" : pharmacy ? "pharmacy" : laboratory ? "laboratory" : null;
 
       if (userEntity) {
+        if (userEntity.verification_status === 'rejected') {
+          setError("Your account verification has been rejected. Please contact support.");
+          setLoading(false);
+          return;
+        }
+        
         if (userEntity.first_login) {
           setDoctorName(userEntity.name); 
           setPendingUserId(userId);
           setPendingUserRole(userRole);
+          setWizardStep(1);
+          setDetails({ phone: "", address: "" });
+          setProofFile(null);
           setShowResetModal(true); 
           setLoading(false); 
           return;
@@ -94,7 +108,7 @@ export default function LoginPage() {
     }
   };
 
-  const handlePasswordReset = async () => {
+  const handlePasswordSubmit = async () => {
     setResetError(null);
     if (!newPassword || !confirmPassword) return setResetError("Please fill both fields.");
     if (newPassword.length < 6) return setResetError("Password must be at least 6 characters.");
@@ -104,15 +118,49 @@ export default function LoginPage() {
       const { error: passError } = await supabase.auth.updateUser({ password: newPassword });
       if (passError) throw passError;
       
+      setWizardStep(2);
+      setResetLoading(false);
+    } catch (err) {
+      setResetError(err.message || "Failed to update password. Try again.");
+      setResetLoading(false);
+    }
+  };
+
+  const handleDetailsSubmit = () => {
+    if (!details.phone || !details.address) return setResetError("Please fill all details.");
+    setResetError(null);
+    setWizardStep(3);
+  };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      setProofFile(ev.target.result); // base64
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleProofSubmit = async () => {
+    if (!proofFile) return setResetError("Please upload your proof document.");
+    setResetLoading(true);
+    setResetError(null);
+    try {
       const table = pendingUserRole === "doctor" ? "doctors" : pendingUserRole === "pharmacy" ? "pharmacies" : "laboratories";
       const { error: dbError } = await supabase
-        .from(table).update({ first_login: false }).eq("user_id", pendingUserId);
+        .from(table).update({ 
+          first_login: false,
+          verification_status: 'pending',
+          proof_url: proofFile,
+          details: details
+        }).eq("user_id", pendingUserId);
       if (dbError) throw dbError;
       
       router.push(pendingUserRole === 'doctor' ? "/doctor" : (pendingUserRole === 'pharmacy' ? "/pharmacy" : "/laboratory")); 
       router.refresh();
     } catch (err) {
-      setResetError(err.message || "Failed to update password. Try again.");
+      setResetError(err.message || "Failed to submit onboarding. Try again.");
       setResetLoading(false);
     }
   };
@@ -487,8 +535,10 @@ export default function LoginPage() {
                 First Login
               </p>
               <p style={{ fontSize: 13, color: "#64748B", textAlign: "center", marginBottom: 28, lineHeight: 1.6 }}>
-                Welcome, <span style={{ fontWeight: 800, color: PRIMARY }}>{pendingUserRole === 'doctor' ? 'Dr. ' : ''}{doctorName}</span>!<br />
-                Please set a permanent password.
+                Welcome, <span style={{ fontWeight: 800, color: PRIMARY }}>{pendingUserRole === 'doctor' ? 'Dr. ' : ''}{doctorName?.replace(/^Dr\.\s*/i, '')}</span>!<br />
+                {wizardStep === 1 && "Please set a permanent password."}
+                {wizardStep === 2 && "Please provide your basic details."}
+                {wizardStep === 3 && "Please upload your proof document."}
               </p>
 
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
@@ -505,50 +555,83 @@ export default function LoginPage() {
                   )}
                 </AnimatePresence>
 
-                {[
-                  { label: "New Password", val: newPassword, set: setNewPassword, ph: "Min. 6 characters" },
-                  { label: "Confirm Password", val: confirmPassword, set: setConfirmPassword, ph: "Re-enter password" },
-                ].map(({ label, val, set, ph }) => (
-                  <div key={label}>
-                    <label style={{ display: "block", fontSize: 10, fontWeight: 900, fontFamily: "'Syne',sans-serif", letterSpacing: "0.25em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 7 }}>
-                      {label}
-                    </label>
-                    <input
-                      type="password" value={val} onChange={(e) => set(e.target.value)} placeholder={ph}
-                      className="input-base"
-                      onFocus={(e) => { e.target.style.borderColor = PRIMARY; e.target.style.boxShadow = "0 0 0 4px rgba(20,61,48,0.08)"; }}
-                      onBlur={(e) => { e.target.style.borderColor = ""; e.target.style.boxShadow = "none"; }}
-                    />
-                  </div>
-                ))}
-
-                {newPassword && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: "0 2px" }}>
-                    <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
-                      {[0, 1, 2, 3].map((l) => (
-                        <motion.div
-                          key={l}
-                          initial={{ scaleX: 0 }}
-                          animate={{ scaleX: strength > l ? 1 : 0 }}
-                          transition={{ type: "spring", stiffness: 400, delay: l * 0.05 }}
-                          style={{ height: 3, flex: 1, borderRadius: 4, background: strength > l ? strengthColors[strength] : "#E2E8F0", transformOrigin: "left" }}
+                {wizardStep === 1 && (
+                  <>
+                    {[
+                      { label: "New Password", val: newPassword, set: setNewPassword, ph: "Min. 6 characters" },
+                      { label: "Confirm Password", val: confirmPassword, set: setConfirmPassword, ph: "Re-enter password" },
+                    ].map(({ label, val, set, ph }) => (
+                      <div key={label}>
+                        <label style={{ display: "block", fontSize: 10, fontWeight: 900, fontFamily: "'Syne',sans-serif", letterSpacing: "0.25em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 7 }}>
+                          {label}
+                        </label>
+                        <input
+                          type="password" value={val} onChange={(e) => set(e.target.value)} placeholder={ph}
+                          className="input-base"
+                          onFocus={(e) => { e.target.style.borderColor = PRIMARY; e.target.style.boxShadow = "0 0 0 4px rgba(20,61,48,0.08)"; }}
+                          onBlur={(e) => { e.target.style.borderColor = ""; e.target.style.boxShadow = "none"; }}
                         />
-                      ))}
-                    </div>
-                    <p style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700 }}>{strengthLabel}</p>
-                  </motion.div>
+                      </div>
+                    ))}
+
+                    {newPassword && (
+                      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ padding: "0 2px" }}>
+                        <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                          {[0, 1, 2, 3].map((l) => (
+                            <motion.div
+                              key={l}
+                              initial={{ scaleX: 0 }}
+                              animate={{ scaleX: strength > l ? 1 : 0 }}
+                              transition={{ type: "spring", stiffness: 400, delay: l * 0.05 }}
+                              style={{ height: 3, flex: 1, borderRadius: 4, background: strength > l ? strengthColors[strength] : "#E2E8F0", transformOrigin: "left" }}
+                            />
+                          ))}
+                        </div>
+                        <p style={{ fontSize: 10, color: "#94A3B8", fontWeight: 700 }}>{strengthLabel}</p>
+                      </motion.div>
+                    )}
+
+                    <motion.button
+                      onClick={handlePasswordSubmit}
+                      disabled={resetLoading}
+                      className="btn-primary"
+                      style={{ width: "100%", padding: "15px", borderRadius: 14, marginTop: 4 }}
+                      whileHover={!resetLoading ? { scale: 1.01 } : {}}
+                      whileTap={!resetLoading ? { scale: 0.98 } : {}}
+                    >
+                      {resetLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Saving…</> : "Next"}
+                    </motion.button>
+                  </>
                 )}
 
-                <motion.button
-                  onClick={handlePasswordReset}
-                  disabled={resetLoading}
-                  className="btn-primary"
-                  style={{ width: "100%", padding: "15px", borderRadius: 14, marginTop: 4 }}
-                  whileHover={!resetLoading ? { scale: 1.01 } : {}}
-                  whileTap={!resetLoading ? { scale: 0.98 } : {}}
-                >
-                  {resetLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Saving…</> : "Set Password & Enter Portal"}
-                </motion.button>
+                {wizardStep === 2 && (
+                  <>
+                    <div>
+                      <label style={{ display: "block", fontSize: 10, fontWeight: 900, fontFamily: "'Syne',sans-serif", letterSpacing: "0.25em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 7 }}>Phone Number</label>
+                      <input type="text" value={details.phone} onChange={e => setDetails({...details, phone: e.target.value})} placeholder="+1 (555) 000-0000" className="input-base" onFocus={(e) => { e.target.style.borderColor = PRIMARY; e.target.style.boxShadow = "0 0 0 4px rgba(20,61,48,0.08)"; }} onBlur={(e) => { e.target.style.borderColor = ""; e.target.style.boxShadow = "none"; }} />
+                    </div>
+                    <div>
+                      <label style={{ display: "block", fontSize: 10, fontWeight: 900, fontFamily: "'Syne',sans-serif", letterSpacing: "0.25em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 7 }}>Facility Address</label>
+                      <input type="text" value={details.address} onChange={e => setDetails({...details, address: e.target.value})} placeholder="123 Medical Pl." className="input-base" onFocus={(e) => { e.target.style.borderColor = PRIMARY; e.target.style.boxShadow = "0 0 0 4px rgba(20,61,48,0.08)"; }} onBlur={(e) => { e.target.style.borderColor = ""; e.target.style.boxShadow = "none"; }} />
+                    </div>
+                    <motion.button onClick={handleDetailsSubmit} disabled={resetLoading} className="btn-primary" style={{ width: "100%", padding: "15px", borderRadius: 14, marginTop: 4 }}>
+                      Next
+                    </motion.button>
+                  </>
+                )}
+
+                {wizardStep === 3 && (
+                  <>
+                    <div>
+                      <label style={{ display: "block", fontSize: 10, fontWeight: 900, fontFamily: "'Syne',sans-serif", letterSpacing: "0.25em", textTransform: "uppercase", color: "#94A3B8", marginBottom: 7 }}>Upload Proof (License / Certificate)</label>
+                      <input type="file" accept="image/*,.pdf" onChange={handleFileChange} className="input-base" style={{ paddingTop: 10, paddingBottom: 10 }} />
+                      <p style={{ fontSize: 10, color: "#94A3B8", marginTop: 4 }}>Image or PDF, max 5MB</p>
+                    </div>
+                    <motion.button onClick={handleProofSubmit} disabled={resetLoading} className="btn-primary" style={{ width: "100%", padding: "15px", borderRadius: 14, marginTop: 4 }}>
+                      {resetLoading ? <><div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} /> Submitting…</> : "Submit for Verification"}
+                    </motion.button>
+                  </>
+                )}
 
                 <button
                   onClick={async () => {

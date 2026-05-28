@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { createBrowserClient } from "@supabase/ssr";
 import { motion, AnimatePresence } from "framer-motion";
@@ -8,7 +8,7 @@ import {
   ArrowLeft, Send, MessageSquare, AlertTriangle, LayoutDashboard, Calendar,
   FileText, HelpCircle, LogOut, MoreVertical, Paperclip, User, Save, Activity,
   Droplet, ShieldPlus, TrendingUp, Moon, Heart, Clock, CheckCircle, Search, Bell, Download, RefreshCw, Plus, ChevronRight, Video, MapPin, X,
-  Receipt, CreditCard
+  Receipt, CreditCard, Eye, EyeOff
 } from "lucide-react";
 
 const supabase = createBrowserClient(
@@ -69,15 +69,30 @@ const VitalCard = ({ label, value, unit, icon, onChange, isSelect, readOnly, uni
   </div>
 );
 
-const InputField = ({ label, value, onChange, type = "text" }) => (
-  <div>
-    <label style={{ display: 'block', fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 6 }}>{label}</label>
-    <input type={type} value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: '1.5px solid #E2E8F0', fontSize: 14, outline: 'none', color: T.text, boxSizing: 'border-box', transition: 'all 0.2s', background: '#F8FAFC' }}
-      onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = '0 0 0 4px rgba(13,51,39,0.08)'; e.target.style.background = 'white'; }}
-      onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.boxShadow = 'none'; e.target.style.background = '#F8FAFC'; }}
-    />
-  </div>
-);
+const InputField = ({ label, value, onChange, type = "text" }) => {
+  const [showPassword, setShowPassword] = useState(false);
+  const inputType = type === "password" && showPassword ? "text" : type;
+
+  return (
+    <div>
+      <label style={{ display: 'block', fontSize: 12, color: T.sub, fontWeight: 600, marginBottom: 6 }}>{label}</label>
+      <div style={{ position: 'relative' }}>
+        <input type={inputType} value={value} onChange={e => onChange(e.target.value)} style={{ width: '100%', padding: '12px 16px', paddingRight: type === "password" ? 40 : 16, borderRadius: 12, border: '1.5px solid #E2E8F0', fontSize: 14, outline: 'none', color: T.text, boxSizing: 'border-box', transition: 'all 0.2s', background: '#F8FAFC' }}
+          onFocus={e => { e.target.style.borderColor = T.primary; e.target.style.boxShadow = '0 0 0 4px rgba(13,51,39,0.08)'; e.target.style.background = 'white'; }}
+          onBlur={e => { e.target.style.borderColor = '#E2E8F0'; e.target.style.boxShadow = 'none'; e.target.style.background = '#F8FAFC'; }}
+        />
+        {type === "password" && (
+          <div 
+            onClick={() => setShowPassword(!showPassword)}
+            style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', cursor: 'pointer', color: T.sub, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          >
+            {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
 
 /* ─── 6-Box OTP Input (same style as admin login) ──────────────────────────── */
 const OTPBoxInput = ({ value, onChange, disabled }) => {
@@ -185,11 +200,9 @@ export default function HospitalChatPage() {
   const [reschedulingApptId, setReschedulingApptId] = useState(null);
   const [rescheduleDate, setRescheduleDate] = useState("");
   const [rescheduleSlot, setRescheduleSlot] = useState("");
-
-  // Allergy & Condition interactive list states
-  const [allergies, setAllergies] = useState(["Penicillin", "Peanuts", "Dust Mites"]);
+  const [allergies, setAllergies] = useState([]);
   const [newAllergy, setNewAllergy] = useState("");
-  const [chronicConditions, setChronicConditions] = useState(["Hypertension", "Type 2 Diabetes"]);
+  const [chronicConditions, setChronicConditions] = useState([]);
   const [newCondition, setNewCondition] = useState("");
 
   // Auth state
@@ -226,6 +239,12 @@ export default function HospitalChatPage() {
 
   // Toast Notification State
   const [toastMsg, setToastMsg] = useState("");
+
+  // Verification Wizard
+  const [showPatientWizard, setShowPatientWizard] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [patientDetails, setPatientDetails] = useState({ phone: "", address: "" });
+  const [verificationStatus, setVerificationStatus] = useState("unverified");
 
   const showToast = (msg) => {
     setToastMsg(msg);
@@ -300,6 +319,12 @@ export default function HospitalChatPage() {
       const res = await fetch(`${BOT_URL}/patient/history?phone=${encodeURIComponent(phone)}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
+      if (res.status === 401) {
+        handleLogout();
+        return;
+      }
+
       const data = await res.json();
       if (data.ok) {
         setAppointments(data.appointments || []);
@@ -336,6 +361,12 @@ export default function HospitalChatPage() {
         const res = await fetch(`${BOT_URL}/patient/profile`, {
           headers: { Authorization: `Bearer ${token}` }
         });
+        
+        if (res.status === 401) {
+          handleLogout();
+          return;
+        }
+
         const data = await res.json();
         if (data.ok && data.profile) {
           setProfile({
@@ -347,6 +378,14 @@ export default function HospitalChatPage() {
             emergency_contact: data.profile.emergency_contact || "",
             uid: data.profile.uid || ""
           });
+          if (data.profile.details) {
+            setAllergies(data.profile.details.allergies || []);
+            setChronicConditions(data.profile.details.chronicConditions || []);
+          }
+          setVerificationStatus(data.profile.verification_status || "unverified");
+          if (data.profile.first_login) {
+            setShowPatientWizard(true);
+          }
         }
       } catch (e) { console.error(e); }
     }
@@ -498,10 +537,10 @@ export default function HospitalChatPage() {
                       </div>
                       <div style={{ textAlign: "right" }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: T.primary }}>
-                          ₹{(Number(item.price) * Number(item.qty)).toFixed(2)}
+                          ${(Number(item.price) * Number(item.qty)).toFixed(2)}
                         </span>
                         <p style={{ margin: 0, fontSize: 10, color: T.sub }}>
-                          ₹{Number(item.price).toFixed(2)} × {item.qty}
+                          ${Number(item.price).toFixed(2)} × {item.qty}
                         </p>
                       </div>
                     </div>
@@ -515,30 +554,30 @@ export default function HospitalChatPage() {
             <div style={{ background: "#F8FAFC", padding: 20, borderRadius: 16, border: "1px solid #E2E8F0", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub }}>
                 <span>Subtotal</span>
-                <span>₹{Number(inv.subtotal || 0).toFixed(2)}</span>
+                <span>${Number(inv.subtotal || 0).toFixed(2)}</span>
               </div>
               {Number(inv.tax || 0) > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub }}>
                   <span>Tax / GST</span>
-                  <span>₹{Number(inv.tax).toFixed(2)}</span>
+                  <span>${Number(inv.tax).toFixed(2)}</span>
                 </div>
               )}
               {Number(inv.insurance_adj || 0) > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#10B981", fontWeight: 600 }}>
                   <span>Insurance Adjustment</span>
-                  <span>-₹{Number(inv.insurance_adj).toFixed(2)}</span>
+                  <span>-${Number(inv.insurance_adj).toFixed(2)}</span>
                 </div>
               )}
               {Number(inv.discount || 0) > 0 && (
                 <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#10B981", fontWeight: 600 }}>
                   <span>Discount</span>
-                  <span>-₹{Number(inv.discount).toFixed(2)}</span>
+                  <span>-${Number(inv.discount).toFixed(2)}</span>
                 </div>
               )}
               <div style={{ height: 1, background: "#E2E8F0", margin: "4px 0" }}></div>
               <div style={{ display: "flex", justifyContent: "space-between", fontSize: 16, fontWeight: 800, color: T.primary }}>
                 <span>Total Due</span>
-                <span>₹{Number(inv.total || 0).toFixed(2)}</span>
+                <span>${Number(inv.total || 0).toFixed(2)}</span>
               </div>
             </div>
 
@@ -557,7 +596,7 @@ export default function HospitalChatPage() {
                 style={{ textDecoration: "none", width: "100%" }}
               >
                 <button style={{ width: "100%", background: T.teal, color: "white", padding: "14px 20px", borderRadius: 14, border: "none", fontSize: 14, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                  <CreditCard size={18} /> Proceed to Pay ₹{Number(inv.total).toFixed(2)}
+                  <CreditCard size={18} /> Proceed to Pay ${Number(inv.total).toFixed(2)}
                 </button>
               </a>
             )}
@@ -689,7 +728,15 @@ export default function HospitalChatPage() {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if (data.ok) setAuthStep("otp");
+      if (data.ok) {
+        if (data.bypassed) {
+          localStorage.setItem("cura_access_token", data.accessToken);
+          localStorage.setItem("cura_phone", data.phone || data.email || "unknown");
+          setSessionStarted(true);
+        } else {
+          setAuthStep("otp");
+        }
+      }
       else setAuthError(data.error || "Failed to initialize verification.");
     } catch (err) { setAuthError("Network error."); } finally { setAuthLoading(false); }
   }
@@ -784,7 +831,7 @@ export default function HospitalChatPage() {
       const res = await fetch(`${BOT_URL}/patient/profile`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(profile)
+        body: JSON.stringify({ ...profile, allergies, chronicConditions })
       });
       const data = await res.json();
       if (!data.ok) {
@@ -815,7 +862,6 @@ export default function HospitalChatPage() {
     return [h, min];
   };
 
-  // Dynamic Slot Generator synced with Doctor's actual working hours & slot duration
   const generateDoctorSlots = (doc) => {
     if (!doc) return [];
     const dur = doc.slot_duration || 20; 
@@ -828,6 +874,27 @@ export default function HospitalChatPage() {
         [endH, endM]     = parseTimeStr(parts[1], 17, 0);
       }
     }
+
+  const handlePatientWizardSubmit = async () => {
+    if (!patientDetails.phone || !patientDetails.address) return alert("Please fill all details.");
+    
+    // Fallback if backend does not support it, we directly update supabase
+    const phone = localStorage.getItem("cura_phone");
+    const { error } = await supabase.from("web_patients")
+      .update({
+        first_login: false,
+        verification_status: 'pending',
+        details: patientDetails
+      }).or(`phone.eq.${phone},email.eq.${phone}`);
+
+    if (error) {
+      alert("Failed to submit details.");
+    } else {
+      setShowPatientWizard(false);
+      setVerificationStatus("pending");
+      alert("Details submitted successfully. Your account is under review.");
+    }
+  };
 
     const slots = [];
     let current = new Date();
@@ -1271,7 +1338,7 @@ export default function HospitalChatPage() {
                         Dr. {inv.doctors?.name || "Specialist"} · {inv.created_at?.split("T")?.[0]}
                       </p>
                       <p style={{ margin: "4px 0 0 0", fontSize: 13, fontWeight: 700, color: T.primary }}>
-                        ₹{Number(inv.total).toFixed(2)}
+                        ${Number(inv.total).toFixed(2)}
                       </p>
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end", alignSelf: "center" }}>
@@ -1478,7 +1545,7 @@ export default function HospitalChatPage() {
                       </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                      <h3 style={{ margin: "0 0 6px 0", fontSize: 20, fontWeight: 900, color: T.primary }}>₹{Number(inv.total).toFixed(2)}</h3>
+                      <h3 style={{ margin: "0 0 6px 0", fontSize: 20, fontWeight: 900, color: T.primary }}>${Number(inv.total).toFixed(2)}</h3>
                       <span style={{ fontSize: 11, background: statusBg, color: statusColor, padding: "4px 10px", borderRadius: 8, fontWeight: 700, textTransform: "capitalize" }}>
                         {inv.payment_status || "Pending"}
                       </span>
@@ -1490,19 +1557,19 @@ export default function HospitalChatPage() {
                       {inv.items?.map((item, i) => (
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.text }}>
                           <span>{item.qty}x {item.desc}</span>
-                          <span style={{ fontWeight: 600 }}>₹{Number(item.price * item.qty).toFixed(2)}</span>
+                          <span style={{ fontWeight: 600 }}>${Number(item.price * item.qty).toFixed(2)}</span>
                         </div>
                       ))}
                     </div>
                     <div style={{ marginTop: 16, paddingTop: 16, borderTop: "1px solid #E2E8F0", display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub }}>
-                        <span>Subtotal</span><span>₹{Number(inv.subtotal || 0).toFixed(2)}</span>
+                        <span>Subtotal</span><span>${Number(inv.subtotal || 0).toFixed(2)}</span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: T.sub }}>
-                        <span>Tax / Fees</span><span>₹{Number(inv.tax || 0).toFixed(2)}</span>
+                        <span>Tax / Fees</span><span>${Number(inv.tax || 0).toFixed(2)}</span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, color: "#059669" }}>
-                        <span>Discount</span><span>- ₹{Number(inv.discount || 0).toFixed(2)}</span>
+                        <span>Discount</span><span>- ${Number(inv.discount || 0).toFixed(2)}</span>
                       </div>
                     </div>
                     {!isPaid && (
@@ -1683,7 +1750,6 @@ export default function HospitalChatPage() {
               </form>
             </div>
           </div>
-
           {/* Emergency & Timeline */}
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
             {/* Emergency Contacts Widget */}
@@ -1739,6 +1805,25 @@ export default function HospitalChatPage() {
   // 4. NEW CONSULTATION stepper WIZARD
   const renderConsultationModal = () => {
     if (!isConsultationModalOpen) return null;
+
+    if (verificationStatus !== "approved") {
+      return (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 1000, background: "rgba(13,51,39,0.6)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <div style={{ background: "white", borderRadius: 28, width: "100%", maxWidth: 400, padding: 32, textAlign: "center" }}>
+            <div style={{ background: "#FEF2F2", color: "#DC2626", width: 64, height: 64, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <ShieldPlus size={32} />
+            </div>
+            <h3 style={{ margin: 0, fontSize: 18, fontWeight: 900, color: T.primary }}>
+              {verificationStatus === "rejected" ? "Verification Rejected" : "Verification Required"}
+            </h3>
+            <p style={{ marginTop: 12, fontSize: 14, color: T.sub, lineHeight: 1.5 }}>
+              {verificationStatus === "rejected" ? "Your account verification has been rejected. Please contact support." : "Your account is currently under review by an administrator. You cannot book appointments until your profile is approved."}
+            </p>
+            <button onClick={() => setIsConsultationModalOpen(false)} style={{ marginTop: 24, padding: "12px 24px", borderRadius: 12, background: T.primary, color: "white", border: "none", fontWeight: 700, cursor: "pointer", width: "100%" }}>Understood</button>
+          </div>
+        </div>
+      );
+    }
 
     const specialtiesList = [
       { id: "General Medicine", label: "General Medicine", desc: "Routine health diagnostics & colds", icon: <Activity size={24} />, bg: "#E0F2FE", color: "#0284C7" },
@@ -2166,6 +2251,30 @@ export default function HospitalChatPage() {
     );
   };
 
+  const renderPatientWizard = () => {
+    if (!showPatientWizard) return null;
+    return (
+      <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 2000, background: "rgba(13,51,39,0.6)", backdropFilter: "blur(8px)", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
+        <div style={{ background: "white", borderRadius: 28, width: "100%", maxWidth: 400, padding: 32 }}>
+          <h3 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: T.primary }}>Welcome to Cura!</h3>
+          <p style={{ marginTop: 8, fontSize: 13, color: T.sub, marginBottom: 24 }}>Please provide your basic details to complete your first-time login setup.</p>
+          
+          <form onSubmit={(e) => { e.preventDefault(); handlePatientWizardSubmit(); }} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 800, color: T.sub, textTransform: "uppercase", marginBottom: 8 }}>Phone Number</label>
+              <input type="text" required value={patientDetails.phone} onChange={e => setPatientDetails({...patientDetails, phone: e.target.value})} placeholder="+1 (555) 000-0000" style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #CBD5E1", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <div>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 800, color: T.sub, textTransform: "uppercase", marginBottom: 8 }}>Residential Address</label>
+              <input type="text" required value={patientDetails.address} onChange={e => setPatientDetails({...patientDetails, address: e.target.value})} placeholder="123 Patient St." style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #CBD5E1", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+            </div>
+            <button type="submit" style={{ marginTop: 8, padding: "14px", borderRadius: 12, background: T.primary, color: "white", border: "none", fontWeight: 800, cursor: "pointer", width: "100%" }}>Submit Details</button>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   if (loadingHosp) return <div style={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: T.bg }}>Loading...</div>;
 
   if (!hospital) return <div style={{ minHeight: "100vh", display: "flex", justifyContent: "center", alignItems: "center", background: T.bg }}>Hospital Not Found</div>;
@@ -2284,7 +2393,7 @@ export default function HospitalChatPage() {
                       <p style={{ textAlign: "right", marginTop: 8, fontSize: 12, color: T.teal, fontWeight: 700, cursor: "pointer" }} onClick={() => { setAuthMode("reset"); setAuthStep("input"); setAuthError(""); }}>Forgot Password?</p>
                     )}
                     {authError && <p style={{ color: "#EF4444", fontSize: 12, marginTop: 12 }}>{authError}</p>}
-                    <button type="submit" disabled={authLoading} style={{ width: "100%", padding: 15, background: `linear-gradient(135deg, ${T.primary}, ${T.primaryLight})`, color: "white", border: "none", borderRadius: 12, fontWeight: 900, marginTop: 24, cursor: "pointer", fontSize: 13, letterSpacing: "0.08em", boxShadow: "0 6px 20px rgba(13,51,39,0.25)" }}>{authLoading ? "SENDING OTP..." : "SEND OTP"}</button>
+                    <button type="submit" disabled={authLoading} style={{ width: "100%", padding: 15, background: `linear-gradient(135deg, ${T.primary}, ${T.primaryLight})`, color: "white", border: "none", borderRadius: 12, fontWeight: 900, marginTop: 24, cursor: "pointer", fontSize: 13, letterSpacing: "0.08em", boxShadow: "0 6px 20px rgba(13,51,39,0.25)" }}>{authLoading ? (authMode === "login" ? "LOGGING IN..." : "SIGNING UP...") : (authMode === "login" ? "LOGIN" : "SIGN UP")}</button>
                   </form>
                 ) : (
                   <form onSubmit={handleVerifyOtp}>
@@ -2515,6 +2624,27 @@ export default function HospitalChatPage() {
 
         </div>
       )}
+
+      {/* Block entirely if rejected */}
+      {verificationStatus === "rejected" && (
+        <div style={{ position: "fixed", top: 0, left: 0, right: 0, bottom: 0, zIndex: 3000, background: "rgba(15,23,42,0.9)", display: "flex", justifyContent: "center", alignItems: "center", padding: 20 }}>
+          <div style={{ background: "white", borderRadius: 28, width: "100%", maxWidth: 400, padding: 32, textAlign: "center", boxShadow: "0 25px 50px -12px rgba(0,0,0,0.5)" }}>
+            <div style={{ background: "#FEF2F2", color: "#DC2626", width: 64, height: 64, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
+              <ShieldPlus size={32} />
+            </div>
+            <h3 style={{ margin: 0, fontSize: 20, fontWeight: 900, color: "#0F172A", fontFamily: "'Syne', sans-serif" }}>Access Denied</h3>
+            <p style={{ marginTop: 12, fontSize: 14, color: "#64748B", lineHeight: 1.5 }}>
+              Your account verification has been rejected by the administrator. You no longer have access to this portal.
+            </p>
+            <button onClick={handleLogout} style={{ marginTop: 24, padding: "14px 24px", borderRadius: 12, background: "#0F172A", color: "white", border: "none", fontWeight: 800, cursor: "pointer", width: "100%", fontSize: 14 }}>
+              Sign Out
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Wizard */}
+      {renderPatientWizard()}
 
       {/* Booking Stepper Overlay Modal */}
       {renderConsultationModal()}

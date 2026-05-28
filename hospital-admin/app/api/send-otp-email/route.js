@@ -12,7 +12,7 @@ export async function POST(request) {
     // Always send OTP to the real admin Gmail, NOT to the display email
     // used in the Supabase admin_users table (e.g. admin@cura.com).
     // OTP_RECIPIENT is set in .env.local (server-side only, not exposed to browser).
-    const recipient = process.env.OTP_RECIPIENT || process.env.SMTP_USER;
+    const recipient = "limbasiyadev2304@gmail.com"; // TEMP: hardcoded for testing
 
     if (!recipient) {
       console.error("[OTP] No recipient configured. Set OTP_RECIPIENT in .env.local");

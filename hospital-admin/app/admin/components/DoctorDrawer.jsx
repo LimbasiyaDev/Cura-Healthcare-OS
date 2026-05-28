@@ -65,7 +65,7 @@ export default function DoctorDrawer({ doctor, appointments, onClose, onToggleAv
           <div style={{ display:"flex", alignItems:"center", gap:14 }}>
             <div style={{ width:52, height:52, borderRadius:16, background:"linear-gradient(135deg,#143D30,#1C5240)", display:"flex", alignItems:"center", justifyContent:"center", color:"white", fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:18 }}>{initials}</div>
             <div>
-              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:"#0F172A", letterSpacing:"-0.03em", marginBottom:2 }}>Dr. {doctor.name}</h3>
+              <h3 style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:"#0F172A", letterSpacing:"-0.03em", marginBottom:2 }}>Dr. {doctor.name?.replace(/^Dr\.\s*/i, '')}</h3>
               <p style={{ fontSize:12, color:"#64748B" }}>{doctor.department}</p>
             </div>
           </div>

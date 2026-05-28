@@ -121,9 +121,9 @@ export default function DashboardView({ hospitals, doctors, appointments, active
   const revenueTotal = chartData.reduce((s, v) => s + v, 0);
 
   function fmt(n) {
-    if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
-    if (n >= 1000)   return `₹${(n / 1000).toFixed(1)}K`;
-    return `₹${n}`;
+    if (n >= 100000) return `$${(n / 100000).toFixed(1)}L`;
+    if (n >= 1000)   return `$${(n / 1000).toFixed(1)}K`;
+    return `$${n}`;
   }
 
   /* recent activity (last 6) */

@@ -57,7 +57,7 @@ export default function DoctorList({ doctors, appointments, hospitals, activeHos
 
                 <div style={{ flex:1, minWidth:0 }}>
                   <div style={{ display:"flex", alignItems:"center", gap:8, marginBottom:3, flexWrap:"wrap" }}>
-                    <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:15, color:"#0F172A" }}>Dr. {doc.name}</span>
+                    <span style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:15, color:"#0F172A" }}>Dr. {doc.name?.replace(/^Dr\.\s*/i, '')}</span>
                     <span style={{ display:"inline-flex", alignItems:"center", gap:4, padding:"2px 8px", borderRadius:999, fontSize:9, fontWeight:800, background: doc.is_available?"#ECFDF5":"#F1F5F9", color: doc.is_available?"#059669":"#94A3B8", fontFamily:"'Syne',sans-serif" }}>
                       <span style={{ width:5, height:5, borderRadius:"50%", background: doc.is_available?"#059669":"#94A3B8", display:"inline-block" }}/>
                       {doc.is_available ? "Online" : "Offline"}

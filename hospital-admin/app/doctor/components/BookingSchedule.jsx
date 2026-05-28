@@ -1446,18 +1446,19 @@ export default function BookingSchedule({
 
 function PatientHistoryFetcher({ phone, activeDoctorId }) {
   const [history, setHistory] = useState([]);
+  const [details, setDetails] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!phone || !activeDoctorId) return;
-    setLoading(true);
     
     // Fetch from our secure backend API to bypass RLS
     fetch(`http://localhost:4000/doctor/patient-history?phone=${phone}&doctor_id=${activeDoctorId}`)
       .then(res => res.json())
       .then(data => {
-        if (data.ok && data.history) {
-          setHistory(data.history);
+        if (data.ok) {
+          if (data.history) setHistory(data.history);
+          if (data.details) setDetails(data.details);
         } else {
           console.error("Failed to fetch history:", data.error);
         }
@@ -1470,47 +1471,79 @@ function PatientHistoryFetcher({ phone, activeDoctorId }) {
   }, [phone, activeDoctorId]);
 
   if (loading) return <div style={{ padding: 40, textAlign: "center", color: "#64748B" }}>Loading records...</div>;
-  if (history.length === 0) return <div style={{ padding: 40, textAlign: "center", color: "#64748B", background: "#F8FAFC", borderRadius: 16, border: "1px dashed #CBD5E1" }}>No past medical records found.</div>;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {history.map(record => (
-        <div key={record.id} style={{ background: "#F8FAFC", padding: 20, borderRadius: 16, border: "1px solid #E2E8F0" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
-            <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0F172A" }}>{record.diagnosis || "Consultation"}</h4>
-            <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>{record.date}</span>
-          </div>
-          <p style={{ margin: "0 0 12px 0", fontSize: 13, color: "#64748B", fontWeight: 500 }}>Dr. {record.doctors?.name} · {record.doctors?.department}</p>
+      {/* Patient Vital Details */}
+      {details && (details.allergies?.length > 0 || details.chronicConditions?.length > 0) && (
+        <div style={{ background: "#FEF2F2", padding: 16, borderRadius: 16, border: "1px solid #FECACA", marginBottom: 8 }}>
+          <h4 style={{ margin: "0 0 12px 0", fontSize: 15, fontWeight: 800, color: "#991B1B" }}>Important Medical Context</h4>
           
-          {record.notes && (
-            <div style={{ marginBottom: 12, background: "white", padding: 12, borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, color: "#334155" }}>
-              <strong>Notes:</strong> {record.notes}
-            </div>
-          )}
-          
-          {record.medicines && record.medicines.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <strong style={{ fontSize: 13, color: "#0F172A" }}>Medicines:</strong>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                {record.medicines.map((m, i) => (
-                  <span key={i} style={{ background: "#EEF2FF", color: "#3730A3", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{m.name}</span>
+          {details.allergies?.length > 0 && (
+            <div style={{ marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#B91C1C", textTransform: "uppercase", letterSpacing: "0.05em" }}>Allergies</span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                {details.allergies.map(a => (
+                  <span key={a} style={{ background: "white", padding: "4px 8px", borderRadius: 8, fontSize: 12, fontWeight: 700, color: "#DC2626", boxShadow: "0 1px 2px rgba(220,38,38,0.1)" }}>{a}</span>
                 ))}
               </div>
             </div>
           )}
-
-          {record.tests && record.tests.length > 0 && (
+          
+          {details.chronicConditions?.length > 0 && (
             <div>
-              <strong style={{ fontSize: 13, color: "#0F172A" }}>Lab Tests:</strong>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                {record.tests.map((t, i) => (
-                  <span key={i} style={{ background: "#FEF2F2", color: "#991B1B", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{t}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "#B91C1C", textTransform: "uppercase", letterSpacing: "0.05em" }}>Chronic Conditions</span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 4 }}>
+                {details.chronicConditions.map(c => (
+                  <span key={c} style={{ background: "white", padding: "4px 8px", borderRadius: 8, fontSize: 12, fontWeight: 700, color: "#D97706", boxShadow: "0 1px 2px rgba(217,119,6,0.1)" }}>{c}</span>
                 ))}
               </div>
             </div>
           )}
         </div>
-      ))}
+      )}
+
+      {history.length === 0 ? (
+        <div style={{ padding: 40, textAlign: "center", color: "#64748B", background: "#F8FAFC", borderRadius: 16, border: "1px dashed #CBD5E1" }}>No past medical records found.</div>
+      ) : (
+        history.map(record => (
+          <div key={record.id} style={{ background: "#F8FAFC", padding: 20, borderRadius: 16, border: "1px solid #E2E8F0", marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 12 }}>
+              <h4 style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#0F172A" }}>{record.diagnosis || "Consultation"}</h4>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "#64748B" }}>{record.date}</span>
+            </div>
+            <p style={{ margin: "0 0 12px 0", fontSize: 13, color: "#64748B", fontWeight: 500 }}>Dr. {record.doctors?.name} · {record.doctors?.department}</p>
+            
+            {record.notes && (
+              <div style={{ marginBottom: 12, background: "white", padding: 12, borderRadius: 8, border: "1px solid #E2E8F0", fontSize: 13, color: "#334155" }}>
+                <strong>Notes:</strong> {record.notes}
+              </div>
+            )}
+            
+            {record.medicines && record.medicines.length > 0 && (
+              <div style={{ marginBottom: 12 }}>
+                <strong style={{ fontSize: 13, color: "#0F172A" }}>Medicines:</strong>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                  {record.medicines.map((m, i) => (
+                    <span key={i} style={{ background: "#EEF2FF", color: "#3730A3", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{m.name}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {record.tests && record.tests.length > 0 && (
+              <div>
+                <strong style={{ fontSize: 13, color: "#0F172A" }}>Lab Tests:</strong>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                  {record.tests.map((t, i) => (
+                    <span key={i} style={{ background: "#FEF2F2", color: "#991B1B", padding: "4px 8px", borderRadius: 6, fontSize: 12, fontWeight: 600 }}>{t}</span>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ))
+      )}
     </div>
   );
 }

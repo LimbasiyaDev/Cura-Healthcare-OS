@@ -42,8 +42,6 @@ export async function POST(req) {
       payment_status,
       insurance_provider,
       notes,
-      sent_via_whatsapp,
-      whatsapp_sent_at,
     } = body;
 
     if (!invoice_num || !patient_phone || !items?.length) {
@@ -70,8 +68,6 @@ export async function POST(req) {
         payment_status:     payment_status || 'Pending',
         insurance_provider: insurance_provider || null,
         notes:              notes || null,
-        sent_via_whatsapp:  sent_via_whatsapp || false,
-        whatsapp_sent_at:   whatsapp_sent_at || null,
       })
       .select()
       .single();

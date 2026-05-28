@@ -1428,7 +1428,7 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess 
             borderRadius: 12, padding: "16px 20px", boxShadow: "0 1px 6px rgba(0,0,0,.06)",
           }}>
             <div style={{ fontSize: 28, fontWeight: 800, color: c.color }}>{c.val}</div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{c.label} Prescriptions</div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{c.label} Lab Requests</div>
           </div>
         ))}
       </div>
@@ -1465,7 +1465,7 @@ function RxList({ prescriptions, loading, onEdit, onDelete, onNew, logPHIAccess 
           </thead>
           <tbody>
             {loading && <tr><td colSpan={9} style={{ textAlign: "center", padding: 40, color: C.muted, fontSize: 13 }}>Loading…</td></tr>}
-            {!loading && filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", padding: 40, color: C.muted, fontSize: 13 }}>No prescriptions found</td></tr>}
+            {!loading && filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign: "center", padding: 40, color: C.muted, fontSize: 13 }}>No lab requests found</td></tr>}
             {filtered.map((rx) => (
               <React.Fragment key={rx.id}>
                 <tr onClick={() => {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   FlaskConical, Activity, CheckCircle2, Settings, LogOut, Bell, Search, 
-  RefreshCw, Clock, FileText, Database, ShieldCheck, Download, Users
+  RefreshCw, Clock, FileText, Database, ShieldCheck, Download, Users, AlertTriangle
 } from "lucide-react";
 
 const supabase = createBrowserClient(
@@ -126,14 +126,31 @@ export default function LaboratoryDashboard() {
         setCatalog(catData[0].medicines || []);
         setCatalogId(catData[0].id);
       } else {
+        const { data: docData } = await supabase.from("doctors").select("id").limit(1);
+        const fallbackDoctorId = docData?.[0]?.id || null;
+
         const payload = {
           patient_name: "LAB_CATALOG",
+          doctor_id: fallbackDoctorId,
           diagnosis: "LAB_CATALOG",
-          status: "catalog",
+          status: "active",
           notes: `[LAB_CATALOG: ${lab.id}]`,
           medicines: [
-            { id: "TEST-1", name: "Complete Blood Count (CBC)", category: "Hematology", price: 450, turnaround: "24h" },
-            { id: "TEST-2", name: "Lipid Profile", category: "Biochemistry", price: 600, turnaround: "12h" }
+            { id: "TEST-1", name: "Complete Blood Count (CBC)", category: "Hematology", price: 25, turnaround: "24h" },
+            { id: "TEST-2", name: "Basic Metabolic Panel (BMP)", category: "Biochemistry", price: 30, turnaround: "24h" },
+            { id: "TEST-3", name: "Comprehensive Metabolic Panel (CMP)", category: "Biochemistry", price: 45, turnaround: "24h" },
+            { id: "TEST-4", name: "Lipid Panel", category: "Biochemistry", price: 35, turnaround: "12h" },
+            { id: "TEST-5", name: "Liver Function Test (LFT)", category: "Biochemistry", price: 40, turnaround: "24h" },
+            { id: "TEST-6", name: "Thyroid Panel (TSH, FT3, FT4)", category: "Endocrinology", price: 50, turnaround: "24h" },
+            { id: "TEST-7", name: "Urinalysis", category: "Pathology", price: 15, turnaround: "12h" },
+            { id: "TEST-8", name: "Hemoglobin A1c (HbA1c)", category: "Endocrinology", price: 25, turnaround: "24h" },
+            { id: "TEST-9", name: "Prothrombin Time (PT/INR)", category: "Hematology", price: 20, turnaround: "12h" },
+            { id: "TEST-10", name: "Vitamin D (25-OH)", category: "Biochemistry", price: 60, turnaround: "48h" },
+            { id: "TEST-11", name: "Iron Panel", category: "Biochemistry", price: 45, turnaround: "48h" },
+            { id: "TEST-12", name: "C-Reactive Protein (CRP)", category: "Immunology", price: 30, turnaround: "24h" },
+            { id: "TEST-13", name: "Prostate-Specific Antigen (PSA)", category: "Oncology", price: 40, turnaround: "24h" },
+            { id: "TEST-14", name: "COVID-19 PCR", category: "Microbiology", price: 75, turnaround: "24h" },
+            { id: "TEST-15", name: "HIV 1/2 Antigen/Antibody", category: "Immunology", price: 55, turnaround: "48h" }
           ]
         };
         const { data: newCat } = await supabase.from("prescriptions").insert(payload).select("id, medicines").single();
@@ -254,12 +271,18 @@ export default function LaboratoryDashboard() {
 
       {/* MAIN CONTENT */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+        {laboratory?.verification_status === 'pending' && (
+          <div style={{ background: "#FEF3C7", borderBottom: "1px solid #FDE68A", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+            <AlertTriangle size={18} color="#D97706" />
+            <p style={{ margin: 0, fontSize: 13, color: "#92400E", fontWeight: 700 }}>Your account is under 24-hour review. Some features may be limited.</p>
+          </div>
+        )}
         
         {/* TOP BAR */}
         <div style={{ height: 80, background: "white", borderBottom: "1px solid #E2E8F0", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 32px" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 8, height: 8, borderRadius: "50%", background: ACCENT }} />
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.15em", color: PRIMARY, textTransform: "uppercase", fontFamily: "'Syne',sans-serif" }}>Secure FHIR Network</span>
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.15em", color: PRIMARY, textTransform: "uppercase", fontFamily: "'Syne',sans-serif" }}>Secure Network</span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
@@ -407,7 +430,7 @@ export default function LaboratoryDashboard() {
                     <div style={{ fontWeight: 700, fontSize: 14, color: "#0F172A" }}>{item.name}</div>
                     <div style={{ fontSize: 13, color: "#64748B" }}>{item.category}</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: "#334155" }}>{item.turnaround}</div>
-                    <div style={{ textAlign: "right", fontSize: 14, fontWeight: 800, color: "#10B981" }}>₹{item.price}</div>
+                    <div style={{ textAlign: "right", fontSize: 14, fontWeight: 800, color: "#10B981" }}>${item.price}</div>
                   </div>
                 ))}
               </div>
@@ -562,7 +585,7 @@ export default function LaboratoryDashboard() {
                         <input id="test-tat" defaultValue={editingTest?.turnaround || ""} placeholder="e.g. 24h" style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 14, outline: "none" }} />
                       </div>
                       <div>
-                        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#64748B", marginBottom: 8, textTransform: "uppercase" }}>Price (₹)</label>
+                        <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "#64748B", marginBottom: 8, textTransform: "uppercase" }}>Price ($)</label>
                         <input id="test-price" type="number" defaultValue={editingTest?.price || 0} style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1px solid #E2E8F0", fontSize: 14, outline: "none" }} />
                       </div>
                     </div>

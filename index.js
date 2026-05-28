@@ -123,9 +123,6 @@ const CONFIG = {
 const supabase      = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
 const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-/* ─── WHATSAPP WEB CLIENT (optional) ────────────────────────────────────── */
-const USE_WHATSAPP_WEB = false; // Set to true if using whatsapp-web.js instead of Cloud API
-const waClient = null;          // Will hold whatsapp-web.js Client instance if enabled
 
 /* ─── AI CLIENTS ─────────────────────────────────────────────────────────── */
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
@@ -764,6 +761,7 @@ app.post("/auth/signup-init", async (req, res) => {
       const { data: sessionData, error: sessionErr } = await supabase.auth.signInWithPassword({ email, password });
       if (sessionErr) return res.status(400).json({ ok: false, error: sessionErr.message });
 
+      /* --- OTP BYPASSED ---
       // 3. Generate OTP and store with session
       const otp = generateOtp();
       emailOtpStore.set(email, {
@@ -778,17 +776,56 @@ app.post("/auth/signup-init", async (req, res) => {
       await sendOtpEmail(email, otp);
       safeLogger.log(`[Auth/SignupInit] ✅ OTP sent to ${email}`);
       return res.json({ ok: true, message: "OTP sent to your email." });
+      */
+      
+      let patientUid = null;
+      const { data: existing } = await supabase.from("web_patients").select("uid").eq("auth_user_id", userId).single();
+      patientUid = existing?.uid || Math.floor(10000 + Math.random() * 90000).toString();
+      
+      const patientData = { 
+        auth_user_id: userId, 
+        email, 
+        name,
+        last_seen: new Date().toISOString(),
+        uid: patientUid
+      };
+      await supabase.from("web_patients").upsert(patientData, { onConflict: "auth_user_id" });
+      
+      return res.json({ ok: true, bypassed: true, accessToken: sessionData.session.access_token, phone: null, email });
 
     } else if (phone) {
       // --- PHONE FLOW: Supabase native SMS OTP ---
       const digits = phone.replace(/\D/g, "");
       const e164   = digits.startsWith("91") ? `+${digits}` : `+91${digits}`;
 
+      /* --- OTP BYPASSED ---
       const { error } = await supabase.auth.signUp({ phone: e164, password, options: { data: { name } } });
       if (error) return res.status(400).json({ ok: false, error: error.message });
 
       safeLogger.log(`[Auth/SignupInit] ✅ SMS OTP triggered for ${e164}`);
       return res.json({ ok: true, message: "OTP sent to your phone." });
+      */
+      
+      const { data: authData, error: authError } = await supabase.auth.signUp({ phone: e164, password, options: { data: { name } } });
+      if (authError) return res.status(400).json({ ok: false, error: authError.message });
+      
+      const { data: sessionData, error: sessionErr } = await supabase.auth.signInWithPassword({ phone: e164, password });
+      if (sessionErr) return res.status(400).json({ ok: false, error: sessionErr.message });
+      
+      let patientUid = null;
+      const { data: existing } = await supabase.from("web_patients").select("uid").eq("auth_user_id", sessionData.user.id).single();
+      patientUid = existing?.uid || Math.floor(10000 + Math.random() * 90000).toString();
+      
+      const patientData = { 
+        auth_user_id: sessionData.user.id, 
+        phone: digits, 
+        name,
+        last_seen: new Date().toISOString(),
+        uid: patientUid
+      };
+      await supabase.from("web_patients").upsert(patientData, { onConflict: "auth_user_id" });
+      
+      return res.json({ ok: true, bypassed: true, accessToken: sessionData.session.access_token, phone: digits, email: null });
     }
   } catch (err) {
     console.error("[Auth/SignupInit] Unexpected error:", err.message);
@@ -817,6 +854,7 @@ app.post("/auth/login-init", async (req, res) => {
         return res.status(400).json({ ok: false, error: "Invalid email or password." });
       }
 
+      /* --- OTP BYPASSED ---
       // 2. Generate OTP and store with session
       const otp = generateOtp();
       emailOtpStore.set(email, {
@@ -831,6 +869,22 @@ app.post("/auth/login-init", async (req, res) => {
       await sendOtpEmail(email, otp);
       safeLogger.log(`[Auth/LoginInit] ✅ OTP sent to ${email}`);
       return res.json({ ok: true, message: "Password correct. OTP sent to your email." });
+      */
+      
+      // Upsert web_patients to ensure UID
+      let patientUid = null;
+      const { data: existing } = await supabase.from("web_patients").select("uid").eq("auth_user_id", sessionData.user.id).single();
+      patientUid = existing?.uid || Math.floor(10000 + Math.random() * 90000).toString();
+      
+      const patientData = { 
+        auth_user_id: sessionData.user.id, 
+        email, 
+        last_seen: new Date().toISOString(),
+        uid: patientUid
+      };
+      await supabase.from("web_patients").upsert(patientData, { onConflict: "auth_user_id" });
+      
+      return res.json({ ok: true, bypassed: true, accessToken: sessionData.session.access_token, phone: null, email });
 
     } else if (phone) {
       // --- PHONE FLOW: Supabase native SMS OTP ---
@@ -840,11 +894,28 @@ app.post("/auth/login-init", async (req, res) => {
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ phone: e164, password });
       if (authError) return res.status(400).json({ ok: false, error: authError.message });
 
+      /* --- OTP BYPASSED ---
       const { error: otpError } = await supabase.auth.signInWithOtp({ phone: e164 });
       if (otpError) return res.status(400).json({ ok: false, error: otpError.message });
 
       safeLogger.log(`[Auth/LoginInit] ✅ SMS OTP triggered for ${e164}`);
       return res.json({ ok: true, message: "Password correct. OTP sent to your phone." });
+      */
+      
+      // Upsert web_patients to ensure UID
+      let patientUid = null;
+      const { data: existing } = await supabase.from("web_patients").select("uid").eq("auth_user_id", authData.user.id).single();
+      patientUid = existing?.uid || Math.floor(10000 + Math.random() * 90000).toString();
+      
+      const patientData = { 
+        auth_user_id: authData.user.id, 
+        phone: digits, 
+        last_seen: new Date().toISOString(),
+        uid: patientUid
+      };
+      await supabase.from("web_patients").upsert(patientData, { onConflict: "auth_user_id" });
+      
+      return res.json({ ok: true, bypassed: true, accessToken: authData.session.access_token, phone: digits, email: null });
     }
   } catch (err) {
     console.error("[Auth/LoginInit] Unexpected error:", err.message);
@@ -1051,7 +1122,7 @@ app.get("/patient/profile", async (req, res) => {
 
     const { data: profile, error: dbErr } = await supabase
       .from("web_patients")
-      .select("name, email, phone, height, weight, blood_group, bmi, emergency_contact, uid")
+      .select("name, email, phone, height, weight, blood_group, bmi, emergency_contact, uid, details")
       .eq("auth_user_id", user.id)
       .single();
 
@@ -1071,7 +1142,7 @@ app.post("/patient/profile", async (req, res) => {
   const token      = authHeader.replace("Bearer ", "").trim();
   if (!token) return res.status(401).json({ ok: false, error: "Token required" });
 
-  const { name, height, weight, blood_group, bmi, emergency_contact } = req.body;
+  const { name, height, weight, blood_group, bmi, emergency_contact, allergies, chronicConditions } = req.body;
 
   try {
     const { data: { user }, error: authErr } = await supabase.auth.getUser(token);
@@ -1084,6 +1155,13 @@ app.post("/patient/profile", async (req, res) => {
     if (blood_group !== undefined) updates.blood_group = blood_group;
     if (bmi !== undefined) updates.bmi = bmi;
     if (emergency_contact !== undefined) updates.emergency_contact = emergency_contact;
+    
+    if (allergies !== undefined || chronicConditions !== undefined) {
+      const details = {};
+      if (allergies !== undefined) details.allergies = allergies;
+      if (chronicConditions !== undefined) details.chronicConditions = chronicConditions;
+      updates.details = details;
+    }
 
     const { error: dbErr } = await supabase
       .from("web_patients")
@@ -1379,7 +1457,19 @@ app.get("/doctor/patient-history", async (req, res) => {
 
     if (fetchError) throw fetchError;
 
-    return res.json({ ok: true, history: history || [] });
+    // 3. Fetch patient details (allergies, chronic conditions)
+    const { data: patientData } = await supabaseAdmin
+      .from("web_patients")
+      .select("details")
+      .in("phone", phoneVariants)
+      .limit(1)
+      .maybeSingle();
+
+    return res.json({ 
+      ok: true, 
+      history: history || [], 
+      details: patientData?.details || null 
+    });
   } catch (err) {
     console.error("[Doctor History Error]", err);
     return res.status(500).json({ ok: false, error: err.message });
@@ -1602,13 +1692,11 @@ app.post("/create-doctor-auth", async (req, res) => {
 });
 
 app.post("/create-hospital", async (req, res) => {
-  const { name, address, whatsapp_phone_number_id, whatsapp_token } = req.body;
+  const { name, address } = req.body;
   if (!name) return res.status(400).json({ error: "Hospital name required" });
   try {
     const { data, error } = await supabase.from("hospitals").insert([{
       name: name.trim(), address: address?.trim() || null,
-      whatsapp_phone_number_id: whatsapp_phone_number_id?.trim() || null,
-      whatsapp_token: whatsapp_token?.trim() || null,
     }]).select().single();
     if (error) throw error;
     await loadHospitalConfigs();
@@ -1617,13 +1705,11 @@ app.post("/create-hospital", async (req, res) => {
 });
 
 app.post("/update-hospital", async (req, res) => {
-  const { id, name, address, whatsapp_phone_number_id, whatsapp_token } = req.body;
+  const { id, name, address } = req.body;
   if (!id) return res.status(400).json({ error: "Hospital ID required" });
   const updates = {};
-  if (name                     !== undefined) updates.name                     = name.trim();
-  if (address                  !== undefined) updates.address                  = address?.trim() || null;
-  if (whatsapp_phone_number_id !== undefined) updates.whatsapp_phone_number_id = whatsapp_phone_number_id?.trim() || null;
-  if (whatsapp_token           !== undefined) updates.whatsapp_token           = whatsapp_token?.trim() || null;
+  if (name    !== undefined) updates.name    = name.trim();
+  if (address !== undefined) updates.address = address?.trim() || null;
   try {
     const { data, error } = await supabase.from("hospitals").update(updates).eq("id", id).select().single();
     if (error) throw error;
@@ -1941,22 +2027,6 @@ async function sendCTAButton(to, bodyText, buttonLabel, url, hospital) {
     }
     return;
   }
-  if (USE_WHATSAPP_WEB && waClient) {
-    const chatId = to.includes("@") ? to : `${to}@c.us`;
-    return waClient.sendMessage(chatId, `${bodyText}\n\n🔗 ${buttonLabel}:\n${url}`);
-  }
-  const token   = hospital?.whatsapp_token || CONFIG.TOKEN;
-  const phoneId = hospital?.whatsapp_phone_number_id || CONFIG.PHONE_NUMBER_ID;
-  return apiPost(`https://graph.facebook.com/v19.0/${phoneId}/messages`, {
-    messaging_product: "whatsapp",
-    to,
-    type: "interactive",
-    interactive: {
-      type: "cta_url",
-      body:   { text: bodyText },
-      action: { name: "cta_url", parameters: { display_text: buttonLabel, url } },
-    },
-  }, token);
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -2814,7 +2884,7 @@ async function showPatientProfile(phone, hospital) {
       `• *Height:* ${height}\n` +
       `• *Weight:* ${weight}\n` +
       `• *BMI:* ${bmi}${bmiCategory}\n` +
-      `• *Emergency Liaison:* ${emergencyContact}\n` +
+      `• *Emergency Contact:* ${emergencyContact}\n` +
       relativeList + `\n\n` +
       `💡 _Send *Menu* or *Hi* to return to the main menu._`;
 
@@ -2976,72 +3046,35 @@ async function showMainMenu(phone, hospital) {
     "Menu Options", hospital);
 }
 
-/* ─── WHATSAPP SEND WRAPPERS ─────────────────────────────────────────────── */
-async function apiPost(url, payload, token, retries = CONFIG.MAX_RETRY) {
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      return await axios.post(url, payload, { headers: { Authorization: `Bearer ${token}` }, timeout: 8000 });
-    } catch (err) {
-      const status = err.response?.status;
-      const detail = err.response?.data?.error?.message || JSON.stringify(err.response?.data) || err.message;
-      if (status === 401) {
-        console.error(`\n❌  401 Unauthorized — Meta rejected the token.\n    Detail: ${detail}`);
-        throw err;
-      }
-      if (status && status >= 400 && status < 500) {
-        console.error(`❌  ${status} client error: ${detail}`);
-        throw err;
-      }
-      if (attempt < retries) {
-        console.warn(`⚠️   API attempt ${attempt}/${retries} failed (${status || err.code}), retrying…`);
-        await pause(400 * attempt);
-      } else throw err;
-    }
-  }
+/* ─── WEB CHAT SEND HELPERS ─────────────────────────────────────────────── */
+async function sendMessage(to, body, _hospital) {
+  const session = getSession(to);
+  if (!session.pendingReplies) session.pendingReplies = [];
+  session.pendingReplies.push({ type: "text", body });
 }
 
-async function sendMessage(to, body, hospital) {
-  console.log(`[sendMessage] to: "${to}", body length: ${body?.length}`);
-  if (to && (to.toString().startsWith("web_") || to.toString().includes("@"))) {
-    const session = getSession(to);
-    if (!session.pendingReplies) session.pendingReplies = [];
-    session.pendingReplies.push({ type: "text", body });
-    console.log(`[sendMessage] pushed web reply, pendingReplies length: ${session.pendingReplies.length}`);
-    return;
-  }
-  console.log(`[sendMessage] [Skipped - WhatsApp Disabled] to: "${to}", body: "${body}"`);
+async function sendButtons(to, text, buttons, _hospital) {
+  const session = getSession(to);
+  session._buttonMap = {};
+  buttons.forEach((b) => {
+    session._buttonMap[b.title.trim()] = b.id;
+    session._buttonMap[b.id] = b.id;
+  });
+  if (!session.pendingReplies) session.pendingReplies = [];
+  session.pendingReplies.push({ type: "buttons", body: text, buttons });
 }
 
-async function sendButtons(to, text, buttons, hospital) {
-  if (to && (to.toString().startsWith("web_") || to.toString().includes("@"))) {
-    const session = getSession(to);
-    session._buttonMap = {};
-    buttons.forEach((b) => {
-      session._buttonMap[b.title.trim()] = b.id;
-      session._buttonMap[b.id] = b.id;
+async function sendList(to, text, sections, buttonLabel, _hospital) {
+  const session = getSession(to);
+  session._buttonMap = {};
+  sections.forEach((sec) => {
+    sec.rows.forEach((row) => {
+      session._buttonMap[row.title.trim()] = row.id;
+      session._buttonMap[row.id] = row.id;
     });
-    if (!session.pendingReplies) session.pendingReplies = [];
-    session.pendingReplies.push({ type: "buttons", body: text, buttons });
-    return;
-  }
-  console.log(`[sendButtons] [Skipped - WhatsApp Disabled] to: "${to}", text: "${text}"`);
-}
-
-async function sendList(to, text, sections, buttonLabel, hospital) {
-  if (to && (to.toString().startsWith("web_") || to.toString().includes("@"))) {
-    const session = getSession(to);
-    session._buttonMap = {};
-    sections.forEach((sec) => {
-      sec.rows.forEach((row) => {
-        session._buttonMap[row.title.trim()] = row.id;
-        session._buttonMap[row.id] = row.id;
-      });
-    });
-    if (!session.pendingReplies) session.pendingReplies = [];
-    session.pendingReplies.push({ type: "list", body: text, sections, buttonLabel });
-    return;
-  }
-  console.log(`[sendList] [Skipped - WhatsApp Disabled] to: "${to}", text: "${text}"`);
+  });
+  if (!session.pendingReplies) session.pendingReplies = [];
+  session.pendingReplies.push({ type: "list", body: text, sections, buttonLabel });
 }
 
 /* ─── START SERVER ───────────────────────────────────────────────────────── */

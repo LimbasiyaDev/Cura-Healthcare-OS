@@ -509,6 +509,7 @@ export default function DoctorDashboard() {
     settings:      "Settings",
     invoice:       "Invoice",
     prescriptions: "Prescriptions",
+    lab_tests:     "Lab Tests",
   };
 
   return (
@@ -531,6 +532,12 @@ export default function DoctorDashboard() {
 
       {/* MAIN */}
       <main className="main">
+        {doctor?.verification_status === 'pending' && (
+          <div style={{ background: "#FEF3C7", borderBottom: "1px solid #FDE68A", padding: "12px 24px", display: "flex", alignItems: "center", gap: 12 }}>
+            <AlertTriangle size={18} color="#D97706" />
+            <p style={{ margin: 0, fontSize: 13, color: "#92400E", fontWeight: 700 }}>Your account is under 24-hour review. Some features may be limited.</p>
+          </div>
+        )}
         {/* TOPBAR */}
         <div className="topbar">
           <div style={{display:"flex",flexDirection:"column"}}>
@@ -545,6 +552,9 @@ export default function DoctorDashboard() {
             )}
             {activeNav==="prescriptions" && (
               <div className="topbar-breadcrumb">Issue, manage, and print patient prescriptions.</div>
+            )}
+            {activeNav==="lab_tests" && (
+              <div className="topbar-breadcrumb">Order lab tests and track patient results.</div>
             )}
           </div>
           <div className="search-wrap" style={{marginLeft:24}}>
@@ -735,7 +745,7 @@ export default function DoctorDashboard() {
                       {avatarInitials}
                     </div>
                     <div>
-                      <p style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:"#0F172A", margin:0 }}>Dr. {doctor?.name}</p>
+                      <p style={{ fontFamily:"'Syne',sans-serif", fontWeight:900, fontSize:20, color:"#0F172A", margin:0 }}>Dr. {doctor?.name?.replace(/^Dr\.\s*/i, '')}</p>
                       <p style={{ fontSize:13, color:"#64748B", margin:"4px 0 0" }}>{doctor?.department}</p>
                       <p style={{ fontSize:12, fontWeight:700, color:PRIMARY, margin:"3px 0 0" }}>{doctor?.email}</p>
                     </div>

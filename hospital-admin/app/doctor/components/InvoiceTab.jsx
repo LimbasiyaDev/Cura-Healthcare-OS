@@ -69,7 +69,7 @@ const CAT_ICONS = {
 };
 
 const fmt = (n) =>
-  "₹" + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  "$" + Number(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
 function generateInvNum() {
   const uid = (typeof crypto !== "undefined" && crypto.randomUUID)
@@ -499,8 +499,6 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
         payment_status:     payStatus || 'Pending',
         insurance_provider: insProvider || null,
         notes:              billNotes || null,
-        sent_via_whatsapp:  true,
-        whatsapp_sent_at:   new Date().toISOString(),
       };
 
       // 1. Save to Supabase first using secure server-side API to bypass RLS
@@ -1007,7 +1005,7 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
                             </select>
                           </div>
                           <div>
-                            <label style={styles.fieldLabel}>Price (₹)</label>
+                            <label style={styles.fieldLabel}>Price ($)</label>
                             <input style={styles.inputF} type="number" value={custPrice} onChange={e => setCustPrice(e.target.value)} placeholder="0" min="0" />
                           </div>
                         </div>
@@ -1164,18 +1162,18 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
               </div>
 
               <div style={{ ...styles.sumRow, alignItems: "center" }}>
-                <span style={styles.sumLabel}>Insurance adj. (₹)</span>
+                <span style={styles.sumLabel}>Insurance adj. ($)</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 11, color: "#94A3B8" }}>-₹</span>
+                  <span style={{ fontSize: 11, color: "#94A3B8" }}>-$</span>
                   <input type="number" value={insAdj} onChange={e => setInsAdj(e.target.value)} placeholder="0" min="0"
                     style={{ width: 80, padding: "5px 8px", border: "1px solid rgba(20,61,48,0.15)", borderRadius: 8, fontSize: 13, fontWeight: 700, textAlign: "right", fontFamily: "inherit", color: "#0F172A", background: "rgba(255,255,255,0.8)" }} />
                 </div>
               </div>
 
               <div style={{ ...styles.sumRow, alignItems: "center" }}>
-                <span style={styles.sumLabel}>Discount (₹)</span>
+                <span style={styles.sumLabel}>Discount ($)</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <span style={{ fontSize: 11, color: "#94A3B8" }}>-₹</span>
+                  <span style={{ fontSize: 11, color: "#94A3B8" }}>-$</span>
                   <input type="number" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0" min="0"
                     style={{ width: 80, padding: "5px 8px", border: "1px solid rgba(20,61,48,0.15)", borderRadius: 8, fontSize: 13, fontWeight: 700, textAlign: "right", fontFamily: "inherit", color: "#0F172A", background: "rgba(255,255,255,0.8)" }} />
                 </div>
@@ -1252,7 +1250,7 @@ export default function InvoiceTab({ doctor, appointments = [] }) {
                 ) : invoiceStatus === "paid" ? (
                   <><CheckCheck size={15} /> Invoice Paid ✓</>
                 ) : (
-                  <><MessageCircle size={15} /> Send via Bot + Pay Now</>
+                  <><MessageCircle size={15} /> Send to Patient</>
                 )}
               </motion.button>
 

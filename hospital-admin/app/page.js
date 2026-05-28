@@ -8,7 +8,7 @@ import {
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
   motion, useMotionValue, useTransform, AnimatePresence,
-  useSpring
+  useSpring, animate
 } from "framer-motion";
 import { createBrowserClient } from "@supabase/ssr";
 
@@ -73,7 +73,7 @@ const CARDS = [
   },
   {
     id: 3, num: "03",
-    title: "Available Hospitals",
+    title: "Book Appointment",
     desc: "Browse every registered facility, review capacity, departments, and locate the right hospital for any patient need.",
     icon: Building2,
     route: "/hospitals",
@@ -192,22 +192,28 @@ function MagneticCard({ children, style = {}, onClick, onMouseEnter, onMouseLeav
 
 /* ─── ANIMATED COUNTER ──────────────────────────────────────────────────────── */
 function Counter({ target, suffix, decimals = 0 }) {
-  const [v, setV] = useState(0);
+  const nodeRef = useRef(null);
+
   useEffect(() => {
     if (target === "∞") return;
     const n = parseFloat(target);
     if (isNaN(n)) return;
-    const step = n / 48;
-    let cur = 0;
-    const t = setInterval(() => {
-      cur = Math.min(cur + step, n);
-      setV(+cur.toFixed(decimals));
-      if (cur >= n) clearInterval(t);
-    }, 25);
-    return () => clearInterval(t);
-  }, [target, decimals]);
+    
+    const controls = animate(0, n, {
+      duration: 1.2,
+      ease: "easeOut",
+      onUpdate(value) {
+        if (nodeRef.current) {
+          nodeRef.current.textContent = value.toFixed(decimals) + suffix;
+        }
+      }
+    });
+
+    return () => controls.stop();
+  }, [target, decimals, suffix]);
+
   if (target === "∞") return <span>∞</span>;
-  return <span>{v.toFixed(decimals)}{suffix}</span>;
+  return <span ref={nodeRef}>0{suffix}</span>;
 }
 
 /* ─── SPRING VARIANTS ───────────────────────────────────────────────────────── */
@@ -346,6 +352,7 @@ function AdminAuthModal({ onClose, onSuccess }) {
       if (rpcErr) throw new Error("Server error. Please try again.");
       if (!isValid) throw new Error("Invalid email or password.");
 
+      /* --- OTP BYPASSED ---
       const newOTP = genOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
@@ -369,6 +376,12 @@ function AdminAuthModal({ onClose, onSuccess }) {
 
       setCountdown(60);
       setStep("otp");
+      */
+      
+      // Bypass OTP for easy login
+      sessionStorage.setItem("admin_authenticated", "true");
+      setStep("success");
+      setTimeout(() => onSuccess(), 1000);
     } catch (err) {
       setError(err.message);
     }
@@ -622,8 +635,8 @@ function AdminAuthModal({ onClose, onSuccess }) {
                 fontSize: 11, color: "#475569", fontWeight: 600,
                 display: "flex", alignItems: "center", gap: 8,
               }}>
-                <Mail size={11} style={{ color: "#16A34A", flexShrink: 0 }} />
-                An OTP will be sent to your registered email address.
+                <Shield size={11} style={{ color: "#16A34A", flexShrink: 0 }} />
+                Secure login for hospital administrators.
               </div>
 
               <motion.button
@@ -643,7 +656,7 @@ function AdminAuthModal({ onClose, onSuccess }) {
                   boxShadow: "0 6px 20px rgba(13,51,39,0.30)", marginTop: 4,
                 }}
               >
-                {loading ? <><Spinner /> Verifying...</> : <><Shield size={13} /> Continue to OTP</>}
+                {loading ? <><Spinner /> Logging in...</> : <><Shield size={13} /> Login</>}
               </motion.button>
             </motion.form>
           )}

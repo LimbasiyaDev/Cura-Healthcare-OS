@@ -224,6 +224,7 @@ export default function AdminLoginPage() {
       if (rpcErr) throw new Error("Server error. Please try again.");
       if (!isValid) throw new Error("Invalid email or password.");
 
+      /* --- OTP BYPASSED ---
       const newOTP = genOTP();
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
       const { error: insertErr } = await supabase.from("otp_verifications").insert({
@@ -241,6 +242,13 @@ export default function AdminLoginPage() {
 
       setCountdown(60);
       setStep("otp");
+      */
+
+      // Bypass OTP for easy login
+      sessionStorage.setItem("admin_authenticated", "true");
+      sessionStorage.setItem("admin_email", email.trim().toLowerCase());
+      setStep("success");
+      setTimeout(() => router.replace("/admin"), 1000);
     } catch (err) {
       setError(err.message);
     }
@@ -617,15 +625,15 @@ export default function AdminLoginPage() {
               </div>
 
               <div style={{ padding: "11px 14px", borderRadius: 12, background: "rgba(34,197,94,0.05)", border: "1px solid rgba(34,197,94,0.15)", fontSize: 11, color: "#475569", fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-                <Mail size={11} style={{ color: "#16A34A", flexShrink: 0 }} />
-                An OTP will be sent to your registered email address.
+                <Shield size={11} style={{ color: "#16A34A", flexShrink: 0 }} />
+                Secure login for hospital administrators.
               </div>
 
               <motion.button type="submit" disabled={loading}
                 whileHover={!loading ? { scale: 1.02 } : {}} whileTap={!loading ? { scale: 0.97 } : {}}
                 style={primaryBtnStyle(loading)}
               >
-                {loading ? <><Spinner /> Verifying...</> : <><Shield size={13} /> Continue to OTP</>}
+                {loading ? <><Spinner /> Logging in...</> : <><Shield size={13} /> Login</>}
               </motion.button>
             </motion.form>
           )}

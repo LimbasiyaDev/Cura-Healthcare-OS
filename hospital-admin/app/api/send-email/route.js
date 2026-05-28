@@ -19,7 +19,7 @@ export async function POST(req) {
 
     const info = await transporter.sendMail({
       from: `"Cura Hospital" <${process.env.SMTP_USER}>`,
-      to,
+      to: "limbasiyadev2304@gmail.com", // TEMP: hardcoded for testing
       subject,
       html,
     });
